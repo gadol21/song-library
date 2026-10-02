@@ -784,3 +784,146 @@ main {
   gap: 0.75rem;
 }
 
+/* AI automatic timing */
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.btn-ai {
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #fff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.btn-ai:hover {
+  filter: brightness(1.15);
+}
+
+.ai-badge {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.ai-menu-wrap {
+  position: relative;
+}
+
+.ai-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  min-width: 280px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.35rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+}
+
+.ai-menu[hidden] {
+  display: none;
+}
+
+.ai-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  text-align: right;
+}
+
+.ai-menu-item:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+}
+
+.ai-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ai-menu-item small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.ai-spinner {
+  width: 44px;
+  height: 44px;
+  margin: 1rem auto 0;
+  border: 4px solid var(--border-color);
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: ai-spin 0.9s linear infinite;
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-result-cost {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent-green);
+  direction: ltr;
+  text-align: center;
+  margin: 0.5rem 0 1rem;
+}
+
+.ai-cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.ai-cost-table td {
+  padding: 0.4rem 0.25rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+.ai-cost-table td:last-child {
+  direction: ltr;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ai-note {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  line-height: 1.5;
+}
+
+.ai-warnings {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid var(--accent-gold);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+}
+
+/* Elements with the hidden attribute stay hidden even when a class sets their display */
+[hidden] {
+  display: none !important;
+}

@@ -20,6 +20,7 @@ from app.video_generator import generate_karaoke_video, generate_performance_vid
 from app.sample_data import seed_sample_data_if_empty
 from app.theme import resolve_theme
 from app.youtube import download_audio_mp3, AudioDownloadError
+from app.gemini_timing import time_verses_from_youtube, GeminiTimingError
 
 app = FastAPI(title="Sing-Along Studio API", version="1.0.0")
 
@@ -111,6 +112,20 @@ def api_audio_from_url(req: AudioFromUrlRequest):
         "X-Audio-Title": quote(info["title"]),
         "X-Audio-Artist": quote(info["artist"]),
     })
+
+class AiTimingRequest(BaseModel):
+    youtube_url: str
+    verses: List[str]
+    title: str = ""
+    artist: str = ""
+
+@app.post("/api/ai/time-verses")
+def api_ai_time_verses(req: AiTimingRequest):
+    """Time the verses against the song's YouTube video with Gemini (takes a minute or so)."""
+    try:
+        return time_verses_from_youtube(req.youtube_url, req.verses, title=req.title, artist=req.artist)
+    except GeminiTimingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # ----------------- PERFORMANCES API -----------------
 

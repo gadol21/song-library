@@ -29,6 +29,7 @@ let studioVerses = [];
 let nextUntimedVerseIndex = 0;
 let isPreviewMode = false;
 let selectedAudioFile = null;
+let studioYoutubeUrl = null;  // set when the song's audio came from a YouTube link (enables AI timing)
 
 // Fullscreen Stage State
 let stageSlides = [];
@@ -77,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupNavigation();
   setupLibrary();
   setupStudio();
+  setupAiTiming();
   setupSetlist();
   setupFullscreenStage();
   loadSongs();
@@ -307,6 +309,7 @@ function setupStudio() {
     const file = e.target.files[0];
     if (file) {
       selectedAudioFile = file;
+      studioYoutubeUrl = null;
       audio.src = URL.createObjectURL(file);
       audio.load();
       showToast(`קובץ שמע נטען: ${file.name}`, "info");
@@ -340,6 +343,7 @@ function setupStudio() {
       const file = new File([blob], `${title || "audio"}.mp3`, { type: "audio/mpeg" });
 
       selectedAudioFile = file;
+      studioYoutubeUrl = url;
       document.getElementById("song-audio-file").value = "";
       audio.src = URL.createObjectURL(file);
       audio.load();
@@ -591,6 +595,169 @@ function scheduleVerseSync() {
   verseSyncTimer = setTimeout(syncVersesFromLyrics, VERSE_SYNC_DELAY_MS);
 }
 
+// ---------- AI automatic timing (Gemini) ----------
+const AI_MODALITY_LABELS = { video: "וידאו", audio: "שמע", text: "טקסט", image: "תמונה" };
+let aiTimerInterval = null;
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function formatUsd(amount) {
+  return `$${amount.toFixed(amount < 0.1 ? 4 : 3)}`;
+}
+
+function formatIsoDateHe(iso) {
+  const [y, m, d] = iso.split("-");
+  return `${Number(d)}.${Number(m)}.${y}`;
+}
+
+function setupAiTiming() {
+  const btn = document.getElementById("btn-ai-timing");
+  const menu = document.getElementById("ai-timing-menu");
+  const youtubeOption = document.getElementById("ai-opt-youtube");
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    btn.setAttribute("aria-expanded", "false");
+  };
+  const openMenu = () => {
+    // The YouTube option needs the song's audio to have come from a YouTube link
+    const available = !!studioYoutubeUrl;
+    youtubeOption.disabled = !available;
+    document.getElementById("ai-opt-youtube-hint").innerText = available ? "" : "זמין רק לשירים שיובאו מקישור יוטיוב";
+    menu.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+  };
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (menu.hidden) openMenu(); else closeMenu();
+  });
+  document.addEventListener("click", (e) => {
+    if (!menu.hidden && !menu.contains(e.target)) closeMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeMenu();
+  });
+  youtubeOption.addEventListener("click", () => {
+    closeMenu();
+    timeLyricsFromYoutube();
+  });
+  document.getElementById("ai-modal-close").addEventListener("click", () => {
+    document.getElementById("ai-timing-modal").classList.remove("active");
+  });
+}
+
+function showAiProgress() {
+  document.getElementById("ai-modal-progress").hidden = false;
+  document.getElementById("ai-modal-result").hidden = true;
+  document.getElementById("ai-modal-close").hidden = true;
+  const elapsed = document.getElementById("ai-modal-elapsed");
+  const started = Date.now();
+  elapsed.innerText = "0";
+  clearInterval(aiTimerInterval);
+  aiTimerInterval = setInterval(() => {
+    elapsed.innerText = Math.floor((Date.now() - started) / 1000);
+  }, 1000);
+  document.getElementById("ai-timing-modal").classList.add("active");
+}
+
+function showAiResult(html) {
+  clearInterval(aiTimerInterval);
+  document.getElementById("ai-modal-progress").hidden = true;
+  const result = document.getElementById("ai-modal-result");
+  result.innerHTML = html;
+  result.hidden = false;
+  document.getElementById("ai-modal-close").hidden = false;
+}
+
+function renderAiCost(cost) {
+  const modalities = Object.entries(cost.input_tokens_by_modality || {})
+    .map(([name, n]) => `${AI_MODALITY_LABELS[name] || name} ${n.toLocaleString("en-US")}`)
+    .join(" · ");
+  const thinking = cost.thinking_tokens ? ` + ${cost.thinking_tokens.toLocaleString("en-US")} חשיבה` : "";
+  const promo = cost.price_valid_through
+    ? ` מחיר המבצע בתוקף עד ${formatIsoDateHe(cost.price_valid_through)}, ואז התעריף מוכפל.`
+    : "";
+  return `
+    <div class="ai-result-cost">${formatUsd(cost.total_cost_usd)}</div>
+    <table class="ai-cost-table">
+      <tr>
+        <td>קלט: ${cost.input_tokens.toLocaleString("en-US")} טוקנים${modalities ? ` (${modalities})` : ""}<br>
+            <small style="color: var(--text-muted);">$${cost.input_price_per_million} למיליון טוקנים</small></td>
+        <td>${formatUsd(cost.input_cost_usd)}</td>
+      </tr>
+      <tr>
+        <td>פלט: ${cost.output_tokens.toLocaleString("en-US")} טוקנים${thinking}<br>
+            <small style="color: var(--text-muted);">$${cost.output_price_per_million} למיליון טוקנים</small></td>
+        <td>${formatUsd(cost.output_cost_usd)}</td>
+      </tr>
+    </table>
+    <p class="ai-note">
+      זה המחיר לפי התעריף בתשלום של ${escapeHtml(cost.model)}.${promo}
+      אם המפתח שלך בתוכנית החינמית של Google AI Studio, לא תחויב בפועל.
+    </p>`;
+}
+
+async function timeLyricsFromYoutube() {
+  syncVersesFromLyrics();  // apply any edit still waiting for the delay
+  if (!studioYoutubeUrl) {
+    showToast("התזמון לפי יוטיוב זמין רק לשיר שיובא מקישור יוטיוב", "error");
+    return;
+  }
+  if (studioVerses.length === 0) {
+    showToast("נא להוסיף מילים לפני התזמון האוטומטי", "error");
+    return;
+  }
+  if (studioVerses.some(isVerseTimed) && !confirm("התזמונים הקיימים יוחלפו בתזמון האוטומטי. להמשיך?")) {
+    return;
+  }
+
+  const sentTexts = studioVerses.map(v => v.text);
+  showAiProgress();
+  try {
+    const res = await fetch("/api/ai/time-verses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        youtube_url: studioYoutubeUrl,
+        verses: sentTexts,
+        title: document.getElementById("song-title").value.trim(),
+        artist: document.getElementById("song-artist").value.trim()
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "התזמון האוטומטי נכשל");
+
+    // Apply to the verses that still have the text that was sent (the lyrics may have been edited meanwhile)
+    const notes = [...data.warnings];
+    let timed = 0;
+    data.timings.forEach((timing, i) => {
+      const verse = studioVerses[i];
+      if (!verse || verse.text !== sentTexts[i]) return;
+      verse.start_time = timing.start_time;
+      verse.end_time = timing.end_time;
+      if (timing.start_time !== null) timed++;
+    });
+    if (studioVerses.length !== sentTexts.length || studioVerses.some((v, i) => v.text !== sentTexts[i])) {
+      notes.push("המילים שונו בזמן התזמון, ולכן חלק מהבתים לא עודכנו");
+    }
+    nextUntimedVerseIndex = firstUntimedVerseIndex();
+    renderVersesList();
+    updateLivePreview(document.getElementById("studio-audio").currentTime);
+
+    showAiResult(`
+      <p style="font-weight: 700;">✅ תוזמנו ${timed} מתוך ${sentTexts.length} בתים</p>
+      ${notes.length ? `<div class="ai-warnings">${notes.map(n => `<div>⚠️ ${escapeHtml(n)}</div>`).join("")}</div>` : ""}
+      <p class="ai-note" style="margin-top: 0.4rem;">זו הערכה של בינה מלאכותית. מומלץ להאזין ולכוון בתים עם ‎-0.5s / +0.5s‎ לפי הצורך.</p>
+      ${renderAiCost(data.cost)}
+    `);
+  } catch (err) {
+    showAiResult(`<p style="color: var(--accent-red); font-weight: 700;">❌ ${escapeHtml(err.message)}</p>`);
+  }
+}
+
 function recordTapTimestamp() {
   const audio = document.getElementById("studio-audio");
   if (audio.paused) {
@@ -793,6 +960,7 @@ async function saveCurrentSong(redirect = true) {
     title,
     artist,
     language,
+    youtube_url: studioYoutubeUrl || undefined,
     duration: audio.duration || (studioVerses[studioVerses.length - 1].start_time + 6.0),
     verses: studioVerses
   };
@@ -827,6 +995,7 @@ async function saveCurrentSong(redirect = true) {
 function loadSongIntoStudio(song) {
   resetStudio();
   currentEditingSong = song;
+  studioYoutubeUrl = song.youtube_url || null;
   document.getElementById("song-title").value = song.title || "";
   document.getElementById("song-artist").value = song.artist || "";
   document.getElementById("song-language").value = song.language || "he";
@@ -850,6 +1019,7 @@ function loadSongIntoStudio(song) {
 function resetStudio() {
   currentEditingSong = null;
   selectedAudioFile = null;
+  studioYoutubeUrl = null;
   studioVerses = [];
   removedTimedVerses = [];
   nextUntimedVerseIndex = 0;

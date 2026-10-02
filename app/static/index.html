@@ -152,7 +152,24 @@
 
         <!-- Right Panel: Tap-to-Sync & Real-time Live Preview -->
         <div class="panel" style="display: flex; flex-direction: column;">
-          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent-gold);">2. תזמון בלייב ותצוגה מקדימה</h2>
+          <div class="panel-header-row">
+            <h2 style="font-size: 1.15rem; margin-bottom: 0; color: var(--accent-gold);">2. תזמון בלייב ותצוגה מקדימה</h2>
+
+            <!-- AI automatic timing -->
+            <div class="ai-menu-wrap">
+              <button type="button" class="btn btn-sm btn-ai" id="btn-ai-timing" aria-haspopup="true" aria-expanded="false" title="תזמון אוטומטי באמצעות בינה מלאכותית">
+                <span>🪄</span>
+                <span>תזמון אוטומטי</span>
+                <span class="ai-badge">AI</span>
+              </button>
+              <div class="ai-menu" id="ai-timing-menu" role="menu" hidden>
+                <button type="button" class="ai-menu-item" id="ai-opt-youtube" role="menuitem">
+                  <span>▶️ תזמן לפי סרטון יוטיוב</span>
+                  <small id="ai-opt-youtube-hint"></small>
+                </button>
+              </div>
+            </div>
+          </div>
 
           <!-- Controller -->
           <div class="sync-controller">
@@ -387,6 +404,27 @@
       <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
         <button class="btn btn-secondary btn-sm" id="modal-export-pptx">📊 הורד PowerPoint</button>
         <button class="btn btn-primary btn-sm" id="modal-export-video">🎬 צור וידאו MP4</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Timing: progress & result -->
+  <div class="modal-overlay" id="ai-timing-modal">
+    <div class="modal-content">
+      <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">🪄 תזמון אוטומטי <span class="ai-badge">AI</span></h3>
+
+      <div id="ai-modal-progress">
+        <div class="ai-spinner"></div>
+        <p style="text-align: center; margin-top: 1rem;">מוריד את הסרטון, מעלה אותו ל-Google ומבקש מ-Gemini לתזמן את הבתים...</p>
+        <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.4rem;">
+          זה לוקח בדרך כלל חצי דקה עד שתיים. עברו <span id="ai-modal-elapsed">0</span> שניות.
+        </p>
+      </div>
+
+      <div id="ai-modal-result" hidden></div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
+        <button class="btn btn-secondary btn-sm" id="ai-modal-close" hidden>סגור</button>
       </div>
     </div>
   </div>

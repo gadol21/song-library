@@ -53,23 +53,29 @@ def _clean_message(error: Exception) -> str:
     """yt-dlp colors its messages for terminals and prefixes them with "ERROR: "."""
     return _ANSI_CODES.sub("", str(error)).replace("ERROR: ", "").strip()
 
-def _download(url: str, out_dir: Path, player_clients: Optional[List[str]]) -> Dict[str, Any]:
-    """One download attempt into out_dir/audio.mp3; returns yt-dlp's info dict."""
+def normalize_url(url: str) -> str:
+    """Return a clean http(s) link ("www.youtube.com/..." gets https://), or raise AudioDownloadError."""
+    url = (url or "").strip()
+    if url and "://" not in url:
+        url = "https://" + url  # allow pasting "www.youtube.com/watch?v=..."
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or "." not in parsed.netloc or re.search(r"\s", url):
+        raise AudioDownloadError("הקישור אינו תקין. הדבק כתובת מלאה שמתחילה ב-https://")
+    return url
+
+def _run_ytdlp(url: str, out_dir: Path, basename: str, player_clients: Optional[List[str]],
+               extra_opts: Dict[str, Any]) -> Dict[str, Any]:
+    """One yt-dlp attempt writing out_dir/<basename>.<ext>; returns yt-dlp's info dict."""
     runtimes = _js_runtimes()
     opts = {
-        "format": "bestaudio/best",
-        "outtmpl": str(out_dir / "audio.%(ext)s"),
+        "outtmpl": str(out_dir / f"{basename}.%(ext)s"),
         "noplaylist": True,
         "quiet": True,
         "noprogress": True,
         "no_warnings": True,
         "ffmpeg_location": _ffmpeg_dir(),
         "match_filter": match_filter_func(f"duration <= {MAX_DURATION_SECONDS}"),
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
+        **extra_opts,
     }
     if runtimes:
         opts["js_runtimes"] = runtimes
@@ -78,39 +84,70 @@ def _download(url: str, out_dir: Path, player_clients: Optional[List[str]]) -> D
     with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(url, download=True)
 
-def download_audio_mp3(url: str) -> Tuple[bytes, Dict[str, Any]]:
-    """Download the audio of a video link and convert it to MP3. Returns (mp3 bytes, info)."""
-    url = (url or "").strip()
-    if url and "://" not in url:
-        url = "https://" + url  # allow pasting "www.youtube.com/watch?v=..."
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or "." not in parsed.netloc or re.search(r"\s", url):
-        raise AudioDownloadError("הקישור אינו תקין. הדבק כתובת מלאה שמתחילה ב-https://")
+def _download_with_retries(url: str, work_dir: Path, basename: str,
+                           extra_opts: Dict[str, Any]) -> Tuple[Path, Dict[str, Any]]:
+    """Run yt-dlp, retrying through other YouTube clients when a download is refused.
 
+    Each attempt gets its own subfolder of work_dir. Returns (that folder, yt-dlp's info dict).
+    """
     last_error = ""
-    with tempfile.TemporaryDirectory() as tmp:
-        for attempt, clients in enumerate(_PLAYER_CLIENT_ATTEMPTS):
-            out_dir = Path(tmp) / f"attempt{attempt}"
-            out_dir.mkdir()
-            try:
-                info = _download(url, out_dir, clients)
-            except Exception as e:  # yt-dlp raises several unrelated error types (download, network, extractor)
-                last_error = _clean_message(e)
-                if any(marker in last_error.lower() for marker in _RETRYABLE):
-                    continue
-                raise AudioDownloadError(f"ההורדה נכשלה: {last_error}") from e
-
-            mp3_files = list(out_dir.glob("audio.mp3"))
-            if not info or not mp3_files:
-                raise AudioDownloadError(
-                    f"לא ניתן להוריד את הסרטון (ייתכן שהוא ארוך מ-{MAX_DURATION_SECONDS // 60} דקות)")
-
-            return mp3_files[0].read_bytes(), {
-                "title": info.get("track") or info.get("title") or "",
-                "artist": info.get("artist") or "",
-                "duration": info.get("duration") or 0,
-            }
+    for attempt, clients in enumerate(_PLAYER_CLIENT_ATTEMPTS):
+        out_dir = work_dir / f"attempt{attempt}"
+        out_dir.mkdir()
+        try:
+            info = _run_ytdlp(url, out_dir, basename, clients, extra_opts)
+        except Exception as e:  # yt-dlp raises several unrelated error types (download, network, extractor)
+            last_error = _clean_message(e)
+            if any(marker in last_error.lower() for marker in _RETRYABLE):
+                continue
+            raise AudioDownloadError(f"ההורדה נכשלה: {last_error}") from e
+        if not info:
+            raise AudioDownloadError(
+                f"לא ניתן להוריד את הסרטון (ייתכן שהוא ארוך מ-{MAX_DURATION_SECONDS // 60} דקות)")
+        return out_dir, info
 
     raise AudioDownloadError(
         f"ההורדה נכשלה: {last_error} (יוטיוב חסם את ההורדה. נסה שוב בעוד רגע, "
         "או עדכן: pip install -U yt-dlp[default])")
+
+def download_audio_mp3(url: str) -> Tuple[bytes, Dict[str, Any]]:
+    """Download the audio of a video link and convert it to MP3. Returns (mp3 bytes, info)."""
+    url = normalize_url(url)
+    with tempfile.TemporaryDirectory() as tmp:
+        out_dir, info = _download_with_retries(url, Path(tmp), "audio", {
+            "format": "bestaudio/best",
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }],
+        })
+        mp3_files = list(out_dir.glob("audio.mp3"))
+        if not mp3_files:
+            raise AudioDownloadError(
+                f"לא ניתן להוריד את הסרטון (ייתכן שהוא ארוך מ-{MAX_DURATION_SECONDS // 60} דקות)")
+        return mp3_files[0].read_bytes(), {
+            "title": info.get("track") or info.get("title") or "",
+            "artist": info.get("artist") or "",
+            "duration": info.get("duration") or 0,
+        }
+
+# Small video with its audio track: Gemini counts video tokens per second regardless of resolution,
+# so a low resolution only saves download/upload time. Prefer MP4 (H.264 + AAC), which Gemini accepts.
+_VIDEO_FORMAT = ("bv*[height<=360][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=360][ext=mp4]+ba[ext=m4a]/"
+                 "b[height<=360][ext=mp4]/bv*[height<=360]+ba/b[height<=360]/w")
+
+def download_video(url: str, work_dir: Path) -> Tuple[Path, Dict[str, Any]]:
+    """Download a small version of the video (with its audio) inside work_dir.
+
+    Returns (video file, yt-dlp info). The caller owns work_dir and removes it afterwards.
+    """
+    url = normalize_url(url)
+    out_dir, info = _download_with_retries(url, work_dir, "video", {
+        "format": _VIDEO_FORMAT,
+        "merge_output_format": "mp4",
+    })
+    files = [p for p in out_dir.glob("video.*") if p.is_file()]
+    if not files:
+        raise AudioDownloadError("הורדת הסרטון נכשלה: לא נוצר קובץ וידאו")
+    return files[0], info
