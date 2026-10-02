@@ -5,3 +5,4 @@ python-pptx>=1.0.0
 python-bidi>=0.6.0
 httpx>=0.28.0
 python-dotenv>=1.0.0
+yt-dlp[default]>=2025.11.12

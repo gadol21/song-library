@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Optional, List
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from urllib.parse import quote
 
 from app.database import (
     init_db, list_songs, get_song, save_song, delete_song,
@@ -18,6 +19,7 @@ from app.pptx_generator import generate_presentation
 from app.video_generator import generate_karaoke_video, generate_performance_video
 from app.sample_data import seed_sample_data_if_empty
 from app.theme import resolve_theme
+from app.youtube import download_audio_mp3, AudioDownloadError
 
 app = FastAPI(title="Sing-Along Studio API", version="1.0.0")
 
@@ -93,6 +95,22 @@ def api_get_song_lrc(song_id: str):
     if not lrc_file.exists():
         raise HTTPException(status_code=404, detail="LRC file not found")
     return FileResponse(lrc_file, media_type="text/plain", filename=f"{song_id}.lrc")
+
+class AudioFromUrlRequest(BaseModel):
+    url: str
+
+@app.post("/api/audio/from-url")
+def api_audio_from_url(req: AudioFromUrlRequest):
+    """Download a video link's audio as MP3. The studio then treats it like an uploaded file."""
+    try:
+        mp3_bytes, info = download_audio_mp3(req.url)
+    except AudioDownloadError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    # Titles may be Hebrew, so send metadata percent-encoded in headers
+    return Response(content=mp3_bytes, media_type="audio/mpeg", headers={
+        "X-Audio-Title": quote(info["title"]),
+        "X-Audio-Artist": quote(info["artist"]),
+    })
 
 # ----------------- PERFORMANCES API -----------------
 

@@ -60,8 +60,20 @@ function isHebrew(text) {
   return /[\u0590-\u05FF]/.test(text);
 }
 
+// Only one player at a time: the studio, library preview and live stage each have their own
+// <audio>, and starting one must silence the rest (otherwise two songs play mixed together).
+function setupSingleAudioPlayback() {
+  // "play" doesn't bubble, so listen in the capture phase
+  document.addEventListener("play", (e) => {
+    document.querySelectorAll("audio").forEach(other => {
+      if (other !== e.target && !other.paused) other.pause();
+    });
+  }, true);
+}
+
 // ==================== INITIALIZATION ====================
 document.addEventListener("DOMContentLoaded", () => {
+  setupSingleAudioPlayback();
   setupNavigation();
   setupLibrary();
   setupStudio();
@@ -284,10 +296,11 @@ function setupStudio() {
   const tapBtn = document.getElementById("btn-tap-sync");
   const rawLyrics = document.getElementById("song-raw-lyrics");
 
-  // Lyrics Parser buttons
-  document.getElementById("btn-parse-stanzas").addEventListener("click", () => parseLyrics(true));
-  document.getElementById("btn-parse-lines").addEventListener("click", () => parseLyrics(false));
-  rawLyrics.addEventListener("input", () => autoDetectLanguageAndCount());
+  // Verses are split automatically from the lyrics box as it is edited
+  rawLyrics.addEventListener("input", () => {
+    autoDetectLanguageAndCount();
+    scheduleVerseSync();
+  });
 
   // Audio file input
   document.getElementById("song-audio-file").addEventListener("change", (e) => {
@@ -297,6 +310,57 @@ function setupStudio() {
       audio.src = URL.createObjectURL(file);
       audio.load();
       showToast(`קובץ שמע נטען: ${file.name}`, "info");
+    }
+  });
+
+  // Audio from a YouTube (or other video) link
+  const urlInput = document.getElementById("song-audio-url");
+  const urlBtn = document.getElementById("btn-download-audio-url");
+  const downloadFromUrl = async () => {
+    const url = urlInput.value.trim();
+    if (!url) {
+      showToast("נא להדביק קישור", "error");
+      return;
+    }
+    urlBtn.disabled = true;
+    urlBtn.innerText = "⏳ מוריד ומשנה לפורמט MP3...";
+    try {
+      const res = await fetch("/api/audio/from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "ההורדה נכשלה");
+      }
+      const title = decodeURIComponent(res.headers.get("X-Audio-Title") || "");
+      const artist = decodeURIComponent(res.headers.get("X-Audio-Artist") || "");
+      const blob = await res.blob();
+      const file = new File([blob], `${title || "audio"}.mp3`, { type: "audio/mpeg" });
+
+      selectedAudioFile = file;
+      document.getElementById("song-audio-file").value = "";
+      audio.src = URL.createObjectURL(file);
+      audio.load();
+      // Fill in the details only if the user hasn't typed their own
+      const titleInput = document.getElementById("song-title");
+      const artistInput = document.getElementById("song-artist");
+      if (title && !titleInput.value.trim()) titleInput.value = title;
+      if (artist && !artistInput.value.trim()) artistInput.value = artist;
+      showToast(`השמע הורד והומר בהצלחה${title ? `: ${title}` : ""}`, "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      urlBtn.disabled = false;
+      urlBtn.innerText = "⬇️ הורד והמר ל-MP3";
+    }
+  };
+  urlBtn.addEventListener("click", downloadFromUrl);
+  urlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      downloadFromUrl();
     }
   });
 
@@ -394,49 +458,137 @@ function autoDetectLanguageAndCount() {
   }
 }
 
-function parseLyrics(byStanzas = true) {
-  const raw = document.getElementById("song-raw-lyrics").value.trim();
-  if (!raw) {
-    showToast("נא להדביק מילים בתיבת הטקסט", "error");
-    return;
+// ---------- Automatic verse splitting ----------
+// The lyrics box is the source of truth: verses are its blank-line-separated paragraphs. On every
+// edit the new verses are lined up with the previous ones, so a verse that was only slightly
+// edited, moved, or sits next to an edit keeps its timing. Only genuinely new verses are untimed.
+const VERSE_MATCH_THRESHOLD = 0.4;  // min. text similarity (0-1) to count as "the same verse, edited"
+const VERSE_SYNC_DELAY_MS = 150;
+let verseSyncTimer = null;
+// Recently removed timed verses; restored if their text comes back (undo, or cut and paste elsewhere)
+let removedTimedVerses = [];
+
+function isVerseTimed(verse) {
+  return verse.start_time !== null && verse.start_time !== undefined && verse.start_time >= 0;
+}
+
+function firstUntimedVerseIndex() {
+  const idx = studioVerses.findIndex(v => !isVerseTimed(v));
+  return idx === -1 ? studioVerses.length : idx;
+}
+
+function normalizeVerseText(text) {
+  return text.split("\n").map(l => l.trim()).filter(Boolean).join("\n");
+}
+
+function splitLyricsIntoVerses(raw) {
+  return raw.split(/\n\s*\n+/).map(normalizeVerseText).filter(Boolean);
+}
+
+function characterBigrams(text) {
+  const counts = new Map();
+  const flat = text.replace(/\s+/g, " ");
+  for (let i = 0; i < flat.length - 1; i++) {
+    const gram = flat.slice(i, i + 2);
+    counts.set(gram, (counts.get(gram) || 0) + 1);
+  }
+  return { text, counts, total: Math.max(0, flat.length - 1) };
+}
+
+// Dice coefficient over character pairs: 1 = identical, 0 = nothing in common
+function textSimilarity(a, b) {
+  if (a.text === b.text) return 1;
+  if (a.total === 0 || b.total === 0) return 0;
+  let overlap = 0;
+  a.counts.forEach((n, gram) => { overlap += Math.min(n, b.counts.get(gram) || 0); });
+  return (2 * overlap) / (a.total + b.total);
+}
+
+// Order-preserving alignment of the old verses to the new verse texts that maximizes total
+// similarity. Returns, for each new verse, the index of its old verse (or -1 if it is new).
+function alignVerses(oldVerses, newTexts) {
+  const a = oldVerses.map(v => characterBigrams(normalizeVerseText(v.text)));
+  const b = newTexts.map(characterBigrams);
+  const n = a.length, m = b.length;
+  const sim = (i, j) => {
+    const s = textSimilarity(a[i], b[j]);
+    return s >= VERSE_MATCH_THRESHOLD ? s : 0;
+  };
+
+  const score = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      const s = sim(i - 1, j - 1);
+      score[i][j] = Math.max(score[i - 1][j], score[i][j - 1], s > 0 ? score[i - 1][j - 1] + s : 0);
+    }
   }
 
-  studioVerses = [];
-  if (byStanzas) {
-    // Split by 2 or more newlines
-    const blocks = raw.split(/\n\s*\n+/);
-    blocks.forEach((block, idx) => {
-      const clean = block.trim();
-      if (clean) {
-        studioVerses.push({
-          id: idx + 1,
-          text: clean,
-          start_time: null,
-          end_time: null
-        });
-      }
-    });
-  } else {
-    // Split by line
-    const lines = raw.split("\n");
-    lines.forEach((line, idx) => {
-      const clean = line.trim();
-      if (clean) {
-        studioVerses.push({
-          id: idx + 1,
-          text: clean,
-          start_time: null,
-          end_time: null
-        });
-      }
-    });
+  const match = new Array(m).fill(-1);
+  let i = n, j = m;
+  while (i > 0 && j > 0) {
+    const s = sim(i - 1, j - 1);
+    if (s > 0 && Math.abs(score[i][j] - (score[i - 1][j - 1] + s)) < 1e-9) {
+      match[j - 1] = i - 1;
+      i--;
+      j--;
+    } else if (score[i][j] === score[i - 1][j]) {
+      i--;
+    } else {
+      j--;
+    }
   }
+  return match;
+}
 
-  nextUntimedVerseIndex = 0;
-  document.getElementById("verse-count-badge").innerText = `זוהו ${studioVerses.length} בתים`;
+function syncVersesFromLyrics() {
+  clearTimeout(verseSyncTimer);
+  const newTexts = splitLyricsIntoVerses(document.getElementById("song-raw-lyrics").value);
+  const oldVerses = studioVerses;
+  const oldTexts = oldVerses.map(v => v.text);
+  const match = alignVerses(oldVerses, newTexts);
+  const oldNext = new Map(oldVerses.map((v, i) => [v, oldVerses[i + 1]]));
+
+  // Timed verses that no longer appear go to the "recently removed" list
+  const keptOld = new Set(match.filter(i => i >= 0));
+  oldVerses.forEach((v, i) => {
+    if (!keptOld.has(i) && isVerseTimed(v)) removedTimedVerses.push(v);
+  });
+  removedTimedVerses = removedTimedVerses.slice(-100);
+
+  let lastId = oldVerses.reduce((max, v) => Math.max(max, Number(v.id) || 0), 0);
+  const verses = newTexts.map((text, j) => {
+    if (match[j] >= 0) {
+      const verse = oldVerses[match[j]];
+      verse.text = text;
+      return verse;
+    }
+    const removedIdx = removedTimedVerses.findIndex(r => normalizeVerseText(r.text) === text);
+    if (removedIdx >= 0) {
+      const [restored] = removedTimedVerses.splice(removedIdx, 1);
+      return { ...restored, id: ++lastId, text };
+    }
+    return { id: ++lastId, text, start_time: null, end_time: null };
+  });
+
+  const unchanged = verses.length === oldVerses.length &&
+    verses.every((v, k) => v === oldVerses[k] && v.text === oldTexts[k]);
+  if (unchanged) return;
+
+  // A verse whose next verse changed no longer ends where it used to: let it end when the next starts
+  verses.forEach((v, k) => {
+    if (oldNext.has(v) && oldNext.get(v) !== verses[k + 1]) v.end_time = null;
+  });
+
+  studioVerses = verses;
+  nextUntimedVerseIndex = firstUntimedVerseIndex();
+  document.getElementById("verse-count-badge").innerText = `זוהו ${verses.length} בתים`;
   renderVersesList();
-  updateLivePreview(0);
-  showToast(`חולק בהצלחה ל-${studioVerses.length} בתים! כעת הפעל את הנגן והקש רווח לתזמון.`, "success");
+  updateLivePreview(document.getElementById("studio-audio").currentTime);
+}
+
+function scheduleVerseSync() {
+  clearTimeout(verseSyncTimer);
+  verseSyncTimer = setTimeout(syncVersesFromLyrics, VERSE_SYNC_DELAY_MS);
 }
 
 function recordTapTimestamp() {
@@ -481,7 +633,7 @@ function renderVersesList() {
   if (studioVerses.length === 0) {
     container.innerHTML = `
       <div style="color: var(--text-muted); text-align: center; padding: 2rem;">
-        הדבק מילים משמאל ולחץ "פצל לפי בתים" כדי להתחיל בתזמון.
+        הדבק מילים משמאל והן יתפצלו לבתים אוטומטית (שורה ריקה מפרידה בין בתים), ואז התחל בתזמון.
       </div>
     `;
     return;
@@ -621,6 +773,7 @@ function updateLivePreview(curTime) {
 }
 
 async function saveCurrentSong(redirect = true) {
+  syncVersesFromLyrics();  // apply any edit still waiting for the delay
   const title = document.getElementById("song-title").value.trim();
   const artist = document.getElementById("song-artist").value.trim();
   const language = document.getElementById("song-language").value;
@@ -698,11 +851,13 @@ function resetStudio() {
   currentEditingSong = null;
   selectedAudioFile = null;
   studioVerses = [];
+  removedTimedVerses = [];
   nextUntimedVerseIndex = 0;
   document.getElementById("song-title").value = "";
   document.getElementById("song-artist").value = "";
   document.getElementById("song-raw-lyrics").value = "";
   document.getElementById("song-audio-file").value = "";
+  document.getElementById("song-audio-url").value = "";
   document.getElementById("verse-count-badge").innerText = "זוהו 0 בתים";
   const audio = document.getElementById("studio-audio");
   audio.pause();

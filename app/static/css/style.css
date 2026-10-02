@@ -358,6 +358,22 @@ main {
   font-size: 0.95rem;
   font-family: inherit;
 }
+.audio-url-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.audio-url-row .form-input {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.audio-url-row .btn {
+  white-space: nowrap;
+}
+
 .color-picker-row {
   display: flex;
   gap: 1.25rem;
