@@ -10,6 +10,7 @@ A streamlined, non-technical studio designed for sing-along singers, community s
    - Everything is stored in human-readable files under `data/songs/<song-name>/`.
    - Each song has `audio.mp3`, `song.json` (metadata & verse timestamps), and standard `lyrics.lrc`.
    - Easy to back up to Google Drive, Dropbox, or a USB stick with zero database setup.
+   - To keep the data somewhere else (e.g. a backed-up folder), copy `.env.example` to `.env` and set `SINGALONG_DATA_DIR` (songs + performances) and `SINGALONG_EXPORTS_DIR` (generated decks/videos). Restart the app after changing it.
 
 2. **🎙️ "Tap-to-Sync" Studio (Verse-by-Verse Timing)**:
    - Paste lyrics and split into verses/stanzas with one click.

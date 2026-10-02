@@ -6,11 +6,24 @@ import time
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+
+# Optional .env in the project folder can relocate the data (e.g. onto a backed-up drive)
+load_dotenv(BASE_DIR / ".env")
+
+def _env_dir(name: str, default: str) -> Path:
+    """Folder from an environment variable; ~ is expanded and relative paths are relative to the project."""
+    raw = os.environ.get(name, "").strip().strip('"').strip("'") or default
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else (BASE_DIR / path).resolve()
+
+# DATA_DIR holds songs (audio + lyrics) and performances; EXPORTS_DIR holds generated decks and videos
+DATA_DIR = _env_dir("SINGALONG_DATA_DIR", "data")
 SONGS_DIR = DATA_DIR / "songs"
 PERFORMANCES_DIR = DATA_DIR / "performances"
-EXPORTS_DIR = BASE_DIR / "exports"
+EXPORTS_DIR = _env_dir("SINGALONG_EXPORTS_DIR", "exports")
 PRESENTATIONS_DIR = EXPORTS_DIR / "presentations"
 VIDEOS_DIR = EXPORTS_DIR / "videos"
 
