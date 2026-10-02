@@ -1,5 +1,17 @@
 // Sing-Along Studio - Frontend Logic
 
+// Default show colors (keep in sync with DEFAULT_THEME in app/theme.py)
+const DEFAULT_PERF_COLORS = {
+  bg_color: "#0b1120",
+  text_color: "#ffffff",
+  title_color: "#38bdf8"
+};
+const PERF_COLOR_INPUTS = {
+  bg_color: "perf-bg-color",
+  text_color: "perf-text-color",
+  title_color: "perf-title-color"
+};
+
 // State
 let allSongs = [];
 let activeTab = "library";
@@ -8,7 +20,8 @@ let currentPerformance = {
   id: null,
   title: "ערב שירה בציבור",
   date: new Date().toISOString().split("T")[0],
-  song_ids: []
+  song_ids: [],
+  ...DEFAULT_PERF_COLORS
 };
 
 // Studio State
@@ -744,6 +757,16 @@ function setupSetlist() {
     });
   }
 
+  Object.entries(PERF_COLOR_INPUTS).forEach(([key, inputId]) => {
+    document.getElementById(inputId).addEventListener("input", (e) => {
+      currentPerformance[key] = e.target.value;
+    });
+  });
+  document.getElementById("btn-reset-perf-colors").addEventListener("click", () => {
+    Object.assign(currentPerformance, DEFAULT_PERF_COLORS);
+    renderPerformanceColors();
+  });
+
   document.getElementById("btn-export-perf-pptx").addEventListener("click", () => exportPerformancePptx());
   document.getElementById("btn-export-perf-video").addEventListener("click", () => exportPerformanceVideo());
   document.getElementById("btn-launch-fullscreen").addEventListener("click", () => launchFullscreenFromSetlist());
@@ -786,15 +809,32 @@ async function loadPerformances(selectedId = null) {
   }
 }
 
+function performanceColors(perf) {
+  const colors = {};
+  Object.keys(DEFAULT_PERF_COLORS).forEach(key => {
+    const value = perf && perf[key];
+    colors[key] = /^#[0-9a-f]{6}$/i.test(value || "") ? value.toLowerCase() : DEFAULT_PERF_COLORS[key];
+  });
+  return colors;
+}
+
+function renderPerformanceColors() {
+  Object.entries(PERF_COLOR_INPUTS).forEach(([key, inputId]) => {
+    document.getElementById(inputId).value = currentPerformance[key];
+  });
+}
+
 function loadPerformanceIntoState(perf) {
   currentPerformance = {
     id: perf.id,
     title: perf.title || "הופעה",
     date: perf.date || new Date().toISOString().split("T")[0],
-    song_ids: Array.isArray(perf.song_ids) ? [...perf.song_ids] : []
+    song_ids: Array.isArray(perf.song_ids) ? [...perf.song_ids] : [],
+    ...performanceColors(perf)
   };
   document.getElementById("perf-title").value = currentPerformance.title;
   document.getElementById("perf-date").value = currentPerformance.date;
+  renderPerformanceColors();
   renderSetlistQueue();
   renderSetlistAvailableSongs();
 }
@@ -804,10 +844,12 @@ function resetPerformance() {
     id: null,
     title: "הופעה חדשה",
     date: new Date().toISOString().split("T")[0],
-    song_ids: []
+    song_ids: [],
+    ...DEFAULT_PERF_COLORS
   };
   document.getElementById("perf-title").value = currentPerformance.title;
   document.getElementById("perf-date").value = currentPerformance.date;
+  renderPerformanceColors();
   renderSetlistQueue();
   renderSetlistAvailableSongs();
 }
@@ -944,7 +986,8 @@ async function savePerformance() {
     id: currentPerformance.id || undefined,
     title: title,
     date: date,
-    song_ids: currentPerformance.song_ids || []
+    song_ids: currentPerformance.song_ids || [],
+    ...performanceColors(currentPerformance)
   };
 
   try {
@@ -1011,6 +1054,68 @@ let fsCurrentSongIndex = 0;
 let fsCurrentVerseIndex = -1;
 let fsAutoSync = true;
 let fsAutohideTimer = null;
+// Font sizes (px) for the current song on the live stage, fitted to its longest title/verse
+let fsSongSizes = { header: 22, title: 60, verse: 51 };
+
+const FS_LINE_HEIGHT = 1.4;
+const FS_FIT_SAFETY = 0.95;
+
+// Width of each line at 100px in the given element's font, via canvas (handles Hebrew shaping)
+function measureLinesAt100px(el, lines) {
+  const ctx = (measureLinesAt100px.canvas ||= document.createElement("canvas")).getContext("2d");
+  const style = getComputedStyle(el);
+  ctx.font = `${style.fontWeight} 100px ${style.fontFamily}`;
+  return lines.map(line => ctx.measureText(line).width / 100);
+}
+
+// Largest px size at which every block of lines fits a boxW x boxH box
+function fitFontPx(el, blocks, boxW, boxH, lineHeight, maxPx) {
+  let size = maxPx;
+  blocks.forEach(lines => {
+    if (!lines.length) return;
+    const widest = Math.max(...measureLinesAt100px(el, lines));
+    if (widest > 0) size = Math.min(size, (boxW * FS_FIT_SAFETY) / widest);
+    size = Math.min(size, (boxH * FS_FIT_SAFETY) / (lines.length * lineHeight));
+  });
+  return Math.floor(size);
+}
+
+function stageVerseLines(verse) {
+  return (verse.text || "").split("\n").map(l => l.trim()).filter(Boolean);
+}
+
+function computeStageSizes(song) {
+  const stage = document.getElementById("fullscreen-stage");
+  const lyricsEl = document.getElementById("fs-lyrics-text");
+  const headerEl = document.querySelector("#fullscreen-stage .fs-header");
+  const w = stage.clientWidth || window.innerWidth;
+  const h = stage.clientHeight || window.innerHeight;
+  const verses = song.verses || [];
+
+  // Header: song title + progress label on one line, up to 7% of the screen height
+  const progress = `בית ${verses.length} מתוך ${verses.length}`;
+  const header = fitFontPx(headerEl, [[`${song.title}      ${progress}`]], w * 0.8, h * 0.07, 1.2, h * 0.07);
+
+  // Lyrics are centered, so keep them clear of the header on top and the footer + player dock below
+  const topReserved = 32 + header * 1.2 + 24;
+  const bottomReserved = 170;
+  const boxW = (w - 96) * 0.9;
+  const boxH = h - 2 * Math.max(topReserved, bottomReserved);
+
+  const verse = fitFontPx(lyricsEl, verses.map(stageVerseLines), boxW, boxH, FS_LINE_HEIGHT, h * 0.25);
+  const titleLines = song.artist ? [song.title, "", song.artist] : [song.title];
+  const title = fitFontPx(lyricsEl, [titleLines], boxW, boxH, FS_LINE_HEIGHT, h * 0.2);
+  fsSongSizes = { header, title, verse: Math.max(20, verse) };
+  headerEl.style.fontSize = `${header}px`;
+}
+
+function applyStageColors() {
+  const stage = document.getElementById("fullscreen-stage");
+  const colors = performanceColors(currentPerformance);
+  stage.style.background = colors.bg_color;
+  stage.style.setProperty("--stage-text-color", colors.text_color);
+  stage.style.setProperty("--stage-title-color", colors.title_color);
+}
 
 function setupFullscreenStage() {
   const stage = document.getElementById("fullscreen-stage");
@@ -1094,7 +1199,7 @@ function setupFullscreenStage() {
       }, 1000);
     } else {
       document.getElementById("fs-lyrics-text").innerText = "סיום ההופעה! 🎵\nתודה רבה לכולם!";
-      document.getElementById("fs-lyrics-text").style.color = "var(--accent-gold)";
+      document.getElementById("fs-lyrics-text").style.color = "var(--stage-title-color)";
       document.getElementById("fs-next-preview").innerText = "";
     }
   });
@@ -1106,6 +1211,14 @@ function setupFullscreenStage() {
     fsAutohideTimer = setTimeout(() => {
       dock.classList.add("autohide");
     }, 3500);
+  });
+
+  window.addEventListener("resize", () => {
+    const song = fsSongs[fsCurrentSongIndex];
+    if (!stage.classList.contains("active") || !song) return;
+    computeStageSizes(song);
+    const lyricsEl = document.getElementById("fs-lyrics-text");
+    lyricsEl.style.fontSize = `${fsCurrentVerseIndex === -1 ? fsSongSizes.title : fsSongSizes.verse}px`;
   });
 
   // Keyboard navigation
@@ -1145,6 +1258,7 @@ function launchFullscreenFromSetlist() {
   }
 
   const stage = document.getElementById("fullscreen-stage");
+  applyStageColors();
   stage.classList.add("active");
   if (document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
@@ -1167,6 +1281,7 @@ function loadLiveStageSong(index) {
   audio.load();
 
   // Show intro slide
+  computeStageSizes(song);
   showStageTitleSlide(song);
 
   // Auto-play audio
@@ -1185,8 +1300,8 @@ function showStageTitleSlide(song) {
   titleEl.innerText = song.title;
   indexEl.innerText = `שיר ${fsCurrentSongIndex + 1} מתוך ${fsSongs.length}`;
   lyricsEl.innerText = song.title + (song.artist ? `\n\n${song.artist}` : "");
-  lyricsEl.style.fontSize = "3.8rem";
-  lyricsEl.style.color = "var(--accent-gold)";
+  lyricsEl.style.fontSize = `${fsSongSizes.title}px`;
+  lyricsEl.style.color = "var(--stage-title-color)";
   lyricsEl.setAttribute("dir", isHebrew(song.title) ? "rtl" : "ltr");
 
   const firstVerse = (song.verses && song.verses.length > 0) ? song.verses[0] : null;
@@ -1233,9 +1348,9 @@ function displayStageVerse(verseIdx) {
   titleEl.innerText = song.title;
   indexEl.innerText = `בית ${verseIdx + 1} מתוך ${song.verses.length}`;
 
-  lyricsEl.innerText = verse.text;
-  lyricsEl.style.fontSize = "3.2rem";
-  lyricsEl.style.color = "#ffffff";
+  lyricsEl.innerText = stageVerseLines(verse).join("\n");
+  lyricsEl.style.fontSize = `${fsSongSizes.verse}px`;
+  lyricsEl.style.color = "var(--stage-text-color)";
   lyricsEl.setAttribute("dir", isHebrew(verse.text) ? "rtl" : "ltr");
 
   if (verseIdx + 1 < song.verses.length) {

@@ -358,6 +358,33 @@ main {
   font-size: 0.95rem;
   font-family: inherit;
 }
+.color-picker-row {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.color-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.color-picker input[type="color"] {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
 .form-input:focus, .form-textarea:focus {
   outline: none;
   border-color: var(--accent-cyan);
@@ -590,6 +617,8 @@ main {
 
 /* Fullscreen Live Presentation Mode */
 #fullscreen-stage {
+  --stage-text-color: #ffffff;
+  --stage-title-color: var(--accent-cyan);
   display: none;
   position: fixed;
   top: 0;
@@ -613,7 +642,7 @@ main {
   position: absolute;
   top: 2rem;
   font-size: 1.4rem;
-  color: var(--accent-cyan);
+  color: var(--stage-title-color, var(--accent-cyan));
   font-weight: 700;
   display: flex;
   gap: 1.5rem;
@@ -623,7 +652,7 @@ main {
   font-size: 3.2rem;
   font-weight: 800;
   line-height: 1.4;
-  color: #ffffff;
+  color: var(--stage-text-color, #ffffff);
   white-space: pre-line;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.9);
   max-width: 90%;

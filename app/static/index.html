@@ -250,6 +250,23 @@
             </div>
           </div>
 
+          <!-- Show Colors (used by the PowerPoint, the video and the live stage) -->
+          <div class="color-picker-row">
+            <label class="color-picker">
+              <input type="color" id="perf-bg-color" value="#0b1120">
+              <span>צבע רקע</span>
+            </label>
+            <label class="color-picker">
+              <input type="color" id="perf-text-color" value="#ffffff">
+              <span>צבע מילים</span>
+            </label>
+            <label class="color-picker">
+              <input type="color" id="perf-title-color" value="#38bdf8">
+              <span>צבע כותרת</span>
+            </label>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-perf-colors" title="החזר לצבעי ברירת המחדל">↺ ברירת מחדל</button>
+          </div>
+
           <!-- Stats Bar -->
           <div style="background: var(--bg-primary); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-around; margin-bottom: 1.25rem;">
             <div>סה"כ שירים: <strong id="perf-count" style="color: var(--accent-cyan);">0</strong></div>
@@ -304,7 +321,7 @@
     <button class="fs-close-btn" id="fs-close-btn">יציאה (ESC) ✕</button>
     <div class="fs-header">
       <span id="fs-song-title">שם השיר</span>
-      <span id="fs-verse-index" style="color: var(--accent-gold);">(1/3)</span>
+      <span id="fs-verse-index" style="opacity: 0.75;">(1/3)</span>
     </div>
     <div class="fs-lyrics" id="fs-lyrics-text">
       מילות השיר יופיעו כאן בגופן ענק וברור

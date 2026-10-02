@@ -10,21 +10,61 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
 from app.database import PRESENTATIONS_DIR, detect_language
+from app.text_fit import fit_font_size, line_height_em
+from app.theme import resolve_theme, hex_to_rgb
 
-# Theme Colors
-BG_COLOR = RGBColor(15, 23, 42)          # Deep Midnight Slate (#0F172A)
-CARD_BG = RGBColor(30, 41, 59)           # Lighter Slate (#1E293B)
-ACCENT_GOLD = RGBColor(245, 158, 11)     # Warm Stage Amber (#F59E0B)
-ACCENT_CYAN = RGBColor(56, 189, 248)     # Vibrant Sky (#38BDF8)
-TEXT_WHITE = RGBColor(255, 255, 255)     # High Contrast White
-TEXT_MUTED = RGBColor(148, 163, 184)     # Slate Light Muted (#94A3B8)
-BORDER_COLOR = RGBColor(51, 65, 85)      # Slate Border (#334155)
+# Text box geometry (inches). python-pptx text boxes have 0.1in side and 0.05in top/bottom insets.
+INSET_X, INSET_Y = 0.1, 0.05
+TITLE_BOX = (1.5, 2.3, 10.333, 3.5)     # left, top, width, height
+HEADER_BOX = (1.0, 0.5, 11.333, 0.8)
+VERSE_BOX = (1.0, 1.6, 11.333, 5.2)
+VERSE_LINE_SPACING = 1.25
+# Font size limits (pt)
+MAX_TITLE_PT, MAX_HEADER_PT, MAX_VERSE_PT, MIN_VERSE_PT = 96, 40, 110, 20
+# Vertical room the song title may use on its slide (the rest is for the show name and artist)
+TITLE_HEIGHT_IN = 2.0
 
-def _set_slide_background(slide, prs_width, prs_height):
-    """Draw a dark background rectangle covering the full slide."""
+def _rgb(hex_color: str) -> RGBColor:
+    return RGBColor(*hex_to_rgb(hex_color))
+
+def _verse_lines(verse: Dict[str, Any]) -> List[str]:
+    return [l.strip() for l in verse.get("text", "").strip().split("\n") if l.strip()]
+
+def _fit_pt(blocks: List[List[str]], box_w_in: float, box_h_in: float, line_spacing: float, max_pt: float) -> float:
+    """Largest point size at which every block fits inside a text box of the given size (inches)."""
+    return fit_font_size(
+        blocks,
+        box_width=(box_w_in - 2 * INSET_X) * 72,
+        box_height=(box_h_in - 2 * INSET_Y) * 72,
+        line_height=line_height_em() * line_spacing,
+        max_size=max_pt,
+    )
+
+def _header_text(song: Dict[str, Any], verse: Dict[str, Any], verse_index: int, total_verses: int) -> str:
+    song_title = song.get("title", "")
+    if detect_language(verse.get("text", "") + song_title) == "he":
+        progress_str = f"בית {verse_index} מתוך {total_verses}"
+    else:
+        progress_str = f"Verse {verse_index} of {total_verses}"
+    return f"{song_title}  •  {progress_str}"
+
+def song_font_sizes(song: Dict[str, Any]) -> Dict[str, float]:
+    """Point sizes used for every slide of a song: the largest that fit its longest title/header/verse."""
+    verses = song.get("verses", [])
+    headers = [[_header_text(song, v, i, len(verses))] for i, v in enumerate(verses, 1)]
+    title = song.get("title", "שיר ללא שם")
+    return {
+        "title": _fit_pt([[title]], TITLE_BOX[2], TITLE_HEIGHT_IN, 1.0, MAX_TITLE_PT),
+        "header": _fit_pt(headers, HEADER_BOX[2], HEADER_BOX[3], 1.0, MAX_HEADER_PT),
+        "verse": max(MIN_VERSE_PT, _fit_pt([_verse_lines(v) for v in verses],
+                                           VERSE_BOX[2], VERSE_BOX[3], VERSE_LINE_SPACING, MAX_VERSE_PT)),
+    }
+
+def _set_slide_background(slide, prs_width, prs_height, theme: Dict[str, str]):
+    """Draw a background rectangle covering the full slide."""
     bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs_width, prs_height)
     bg.fill.solid()
-    bg.fill.fore_color.rgb = BG_COLOR
+    bg.fill.fore_color.rgb = _rgb(theme["bg_color"])
     bg.line.fill.background() # no border
     return bg
 
@@ -41,10 +81,11 @@ def _apply_rtl_if_needed(paragraph, text: str):
         paragraph.alignment = PP_ALIGN.CENTER
     return lang
 
-def create_song_title_slide(prs, song: Dict[str, Any], perf_title: Optional[str] = None):
+def create_song_title_slide(prs, song: Dict[str, Any], theme: Dict[str, str], sizes: Dict[str, float],
+                            perf_title: Optional[str] = None):
     """Add a stylish title slide introducing the song."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    _set_slide_background(slide, prs.slide_width, prs.slide_height)
+    _set_slide_background(slide, prs.slide_width, prs.slide_height, theme)
 
     # Accent decorative bar on top
     accent_bar = slide.shapes.add_shape(
@@ -52,11 +93,11 @@ def create_song_title_slide(prs, song: Dict[str, Any], perf_title: Optional[str]
         Inches(1.5), Inches(1.8), Inches(10.333), Inches(0.08)
     )
     accent_bar.fill.solid()
-    accent_bar.fill.fore_color.rgb = ACCENT_GOLD
+    accent_bar.fill.fore_color.rgb = _rgb(theme["title_color"])
     accent_bar.line.fill.background()
 
     # Title & Artist Textbox
-    tb = slide.shapes.add_textbox(Inches(1.5), Inches(2.3), Inches(10.333), Inches(3.5))
+    tb = slide.shapes.add_textbox(*(Inches(v) for v in TITLE_BOX))
     tf = tb.text_frame
     tf.word_wrap = True
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -67,7 +108,7 @@ def create_song_title_slide(prs, song: Dict[str, Any], perf_title: Optional[str]
         p_perf.text = perf_title
         p_perf.font.name = "Arial"
         p_perf.font.size = Pt(20)
-        p_perf.font.color.rgb = ACCENT_CYAN
+        p_perf.font.color.rgb = _rgb(theme["text_color"])
         _apply_rtl_if_needed(p_perf, perf_title)
         p_title = tf.add_paragraph()
     else:
@@ -77,9 +118,9 @@ def create_song_title_slide(prs, song: Dict[str, Any], perf_title: Optional[str]
     song_title = song.get("title", "שיר ללא שם")
     p_title.text = song_title
     p_title.font.name = "Arial"
-    p_title.font.size = Pt(56)
+    p_title.font.size = Pt(sizes["title"])
     p_title.font.bold = True
-    p_title.font.color.rgb = TEXT_WHITE
+    p_title.font.color.rgb = _rgb(theme["title_color"])
     p_title.space_before = Pt(14)
     _apply_rtl_if_needed(p_title, song_title)
 
@@ -90,39 +131,31 @@ def create_song_title_slide(prs, song: Dict[str, Any], perf_title: Optional[str]
         p_artist.text = artist
         p_artist.font.name = "Arial"
         p_artist.font.size = Pt(32)
-        p_artist.font.color.rgb = ACCENT_GOLD
+        p_artist.font.color.rgb = _rgb(theme["text_color"])
         p_artist.space_before = Pt(10)
         _apply_rtl_if_needed(p_artist, artist)
 
     return slide
 
-def create_verse_slide(prs, song: Dict[str, Any], verse: Dict[str, Any], verse_index: int, total_verses: int):
+def create_verse_slide(prs, song: Dict[str, Any], verse: Dict[str, Any], verse_index: int, total_verses: int,
+                       theme: Dict[str, str], sizes: Dict[str, float]):
     """Add a high-readability verse slide with song header and progress indicator."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    _set_slide_background(slide, prs.slide_width, prs.slide_height)
+    _set_slide_background(slide, prs.slide_width, prs.slide_height, theme)
 
     # Top Header: Song Title & Progress
-    header_tb = slide.shapes.add_textbox(Inches(1.0), Inches(0.5), Inches(11.333), Inches(0.8))
+    header_tb = slide.shapes.add_textbox(*(Inches(v) for v in HEADER_BOX))
     htf = header_tb.text_frame
     htf.word_wrap = True
+    htf.vertical_anchor = MSO_ANCHOR.MIDDLE
     hp = htf.paragraphs[0]
-    
-    song_title = song.get("title", "")
-    lang = detect_language(verse.get("text", "") + song_title)
-    
-    if lang == "he":
-        progress_str = f"בית {verse_index} מתוך {total_verses}"
-        header_text = f"{song_title}  •  {progress_str}"
-        hp.alignment = PP_ALIGN.RIGHT
-    else:
-        progress_str = f"Verse {verse_index} of {total_verses}"
-        header_text = f"{song_title}  •  {progress_str}"
-        hp.alignment = PP_ALIGN.LEFT
-        
+
+    header_text = _header_text(song, verse, verse_index, total_verses)
     hp.text = header_text
     hp.font.name = "Arial"
-    hp.font.size = Pt(18)
-    hp.font.color.rgb = ACCENT_CYAN
+    hp.font.size = Pt(sizes["header"])
+    hp.font.bold = True
+    hp.font.color.rgb = _rgb(theme["title_color"])
     _apply_rtl_if_needed(hp, header_text)
 
     # Subtle divider line under header
@@ -131,42 +164,32 @@ def create_verse_slide(prs, song: Dict[str, Any], verse: Dict[str, Any], verse_i
         Inches(1.0), Inches(1.3), Inches(11.333), Inches(0.02)
     )
     divider.fill.solid()
-    divider.fill.fore_color.rgb = BORDER_COLOR
+    divider.fill.fore_color.rgb = _rgb(theme["title_color"])
     divider.line.fill.background()
 
     # Verse Text Box (Centered and Large)
-    verse_tb = slide.shapes.add_textbox(Inches(1.0), Inches(1.6), Inches(11.333), Inches(5.2))
+    verse_tb = slide.shapes.add_textbox(*(Inches(v) for v in VERSE_BOX))
     vtf = verse_tb.text_frame
     vtf.word_wrap = True
     vtf.vertical_anchor = MSO_ANCHOR.MIDDLE
 
-    verse_text = verse.get("text", "").strip()
-    lines = [l.strip() for l in verse_text.split("\n") if l.strip()]
-
-    # Dynamic font sizing based on line count to guarantee it fits cleanly
-    if len(lines) <= 2:
-        font_size = 46
-    elif len(lines) <= 4:
-        font_size = 38
-    elif len(lines) <= 6:
-        font_size = 32
-    else:
-        font_size = 26
-
-    for i, line in enumerate(lines):
+    # Same size on every verse slide of the song (fitted to its longest verse)
+    for i, line in enumerate(_verse_lines(verse)):
         p = vtf.paragraphs[0] if i == 0 else vtf.add_paragraph()
         p.text = line
         p.font.name = "Arial"
-        p.font.size = Pt(font_size)
+        p.font.size = Pt(sizes["verse"])
         p.font.bold = True
-        p.font.color.rgb = TEXT_WHITE
-        p.line_spacing = 1.25
+        p.font.color.rgb = _rgb(theme["text_color"])
+        p.line_spacing = VERSE_LINE_SPACING
         _apply_rtl_if_needed(p, line)
 
     return slide
 
-def generate_presentation(songs: List[Dict[str, Any]], title: str = "שירה בציבור", filename_prefix: str = "performance") -> str:
+def generate_presentation(songs: List[Dict[str, Any]], title: str = "שירה בציבור", filename_prefix: str = "performance",
+                          theme: Optional[Dict[str, Any]] = None) -> str:
     """Generate a complete 16:9 widescreen presentation deck for a setlist or song."""
+    theme = resolve_theme(theme)
     PRESENTATIONS_DIR.mkdir(parents=True, exist_ok=True)
     prs = Presentation()
     prs.slide_width = Inches(13.333)  # 16:9 Widescreen
@@ -174,13 +197,14 @@ def generate_presentation(songs: List[Dict[str, Any]], title: str = "שירה ב
 
     for song in songs:
         verses = song.get("verses", [])
+        sizes = song_font_sizes(song)
         # Song Title Slide
-        create_song_title_slide(prs, song, perf_title=title)
-        
+        create_song_title_slide(prs, song, theme, sizes, perf_title=title)
+
         # Verse Slides
         total_verses = len(verses)
         for idx, verse in enumerate(verses, 1):
-            create_verse_slide(prs, song, verse, idx, total_verses)
+            create_verse_slide(prs, song, verse, idx, total_verses, theme, sizes)
 
     # Save output file
     timestamp = int(time.time())

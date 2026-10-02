@@ -5,6 +5,15 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from app.database import VIDEOS_DIR, detect_language
+from app.text_fit import fit_font_size, line_height_em
+from app.theme import resolve_theme, hex_to_rgb
+
+VIDEO_W, VIDEO_H = 1280, 720
+# Screen regions (px): title strip at top, next-verse preview at bottom, verse fills the middle
+HEADER_MARGIN_X, HEADER_MARGIN_TOP, HEADER_HEIGHT = 40, 30, 90
+VERSE_MARGIN_X, VERSE_HEIGHT = 70, 460
+NEXT_FONT_SIZE, NEXT_MARGIN_BOTTOM = 30, 40
+MAX_HEADER_SIZE, MAX_VERSE_SIZE, MIN_VERSE_SIZE = 72, 160, 24
 
 def escape_filter_path(path: Path) -> str:
     """Quote a file path for use inside an FFmpeg filter argument (handles Windows drive colons/backslashes)."""
@@ -22,8 +31,28 @@ def format_ass_time(seconds: float) -> str:
         cs -= 100
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
-def generate_ass_subtitles(song: Dict[str, Any], total_duration: float) -> str:
+def ass_color(hex_color: str, alpha: int = 0) -> str:
+    """Convert #RRGGBB to ASS &HAABBGGRR (alpha 0 = opaque, 255 = transparent)."""
+    r, g, b = hex_to_rgb(hex_color)
+    return f"&H{alpha:02X}{b:02X}{g:02X}{r:02X}"
+
+def verse_lines(verse: Dict[str, Any]) -> List[str]:
+    """Non-empty, stripped lines of a verse's text."""
+    return [line.strip() for line in verse.get("text", "").strip().split("\n") if line.strip()]
+
+def fit_ass_font_size(blocks: List[List[str]], box_width: float, box_height: float, max_size: float) -> int:
+    """Largest ASS Fontsize at which every block of lines fits the box.
+
+    libass treats Fontsize as the font's line height (ascent + descent), not its em size,
+    so fit in em units and convert.
+    """
+    lh = line_height_em()
+    em = fit_font_size(blocks, box_width, box_height, line_height=lh, max_size=max_size / lh)
+    return int(em * lh)
+
+def generate_ass_subtitles(song: Dict[str, Any], total_duration: float, theme: Optional[Dict[str, Any]] = None) -> str:
     """Generate Advanced SubStation Alpha (.ass) subtitle file for karaoke rendering."""
+    theme = resolve_theme(theme)
     title = song.get("title", "")
     artist = song.get("artist", "")
     verses = song.get("verses", [])
@@ -32,6 +61,17 @@ def generate_ass_subtitles(song: Dict[str, Any], total_duration: float) -> str:
     sorted_verses = sorted(verses, key=lambda v: v.get("start_time") or 0.0)
 
     header_text = f"{title} - {artist}" if artist else title
+
+    # One font size for the whole song: the largest at which its longest verse still fits
+    header_size = fit_ass_font_size([[header_text]], VIDEO_W - 2 * HEADER_MARGIN_X, HEADER_HEIGHT, MAX_HEADER_SIZE)
+    verse_size = fit_ass_font_size([verse_lines(v) for v in sorted_verses],
+                                   VIDEO_W - 2 * VERSE_MARGIN_X, VERSE_HEIGHT, MAX_VERSE_SIZE)
+    verse_size = max(MIN_VERSE_SIZE, verse_size)
+
+    title_col = ass_color(theme["title_color"])
+    text_col = ass_color(theme["text_color"])
+    # Next-verse preview: text color, partly transparent so it reads as secondary
+    next_col = ass_color(theme["text_color"], alpha=0x70)
 
     # ASS Header & Styles
     ass_lines = [
@@ -46,11 +86,11 @@ def generate_ass_subtitles(song: Dict[str, Any], total_duration: float) -> str:
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
         # Title at the top center
-        r"Style: Header,Arial,30,&H0038BDF8,&H00000000,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,8,40,40,35,1",
-        # Active verse: centered, large, vibrant white with subtle gold outline
-        r"Style: ActiveVerse,Arial,42,&H00FFFFFF,&H00000000,&H00000000,&HA0000000,1,0,0,0,100,100,0,0,1,3,2,5,70,70,40,1",
-        # Next verse preview: bottom, smaller, muted slate
-        r"Style: NextVerse,Arial,26,&H0094A3B8,&H00000000,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,1,2,1,2,70,70,55,1",
+        f"Style: Header,Arial,{header_size},{title_col},&H00000000,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,8,{HEADER_MARGIN_X},{HEADER_MARGIN_X},{HEADER_MARGIN_TOP},1",
+        # Active verse: centered, as large as fits, with a dark outline
+        f"Style: ActiveVerse,Arial,{verse_size},{text_col},&H00000000,&H00000000,&HA0000000,1,0,0,0,100,100,0,0,1,3,2,5,{VERSE_MARGIN_X},{VERSE_MARGIN_X},0,1",
+        # Next verse preview: bottom, smaller, faded text color
+        f"Style: NextVerse,Arial,{NEXT_FONT_SIZE},{next_col},&H00000000,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,1,2,1,2,{VERSE_MARGIN_X},{VERSE_MARGIN_X},{NEXT_MARGIN_BOTTOM},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -70,9 +110,7 @@ def generate_ass_subtitles(song: Dict[str, Any], total_duration: float) -> str:
             end = min(total_duration, start + 6.0)
 
         # Format verse text: replace newlines with ASS \N
-        raw_text = v.get("text", "").strip()
-        lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
-        formatted_text = r"\N".join(lines)
+        formatted_text = r"\N".join(verse_lines(v))
 
         start_str = format_ass_time(start)
         end_str = format_ass_time(end)
@@ -82,9 +120,7 @@ def generate_ass_subtitles(song: Dict[str, Any], total_duration: float) -> str:
 
         # Next verse preview (if there is an upcoming verse)
         if idx + 1 < len(sorted_verses):
-            next_v = sorted_verses[idx + 1]
-            next_raw = next_v.get("text", "").strip()
-            next_lines = [l.strip() for l in next_raw.split("\n") if l.strip()]
+            next_lines = verse_lines(sorted_verses[idx + 1])
             first_line = next_lines[0] if next_lines else ""
             lang = detect_language(first_line)
             label = "הבא: " if lang == "he" else "Next: "
@@ -92,8 +128,9 @@ def generate_ass_subtitles(song: Dict[str, Any], total_duration: float) -> str:
 
     return "\n".join(ass_lines)
 
-def generate_karaoke_video(song: Dict[str, Any], filename_prefix: str = "karaoke") -> str:
+def generate_karaoke_video(song: Dict[str, Any], filename_prefix: str = "karaoke", theme: Optional[Dict[str, Any]] = None) -> str:
     """Render a 720p HD MP4 karaoke video for a song using FFmpeg."""
+    theme = resolve_theme(theme)
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = int(time.time())
     clean_prefix = "".join([c if c.isalnum() else "_" for c in song.get("id", filename_prefix)])[:30]
@@ -125,7 +162,7 @@ def generate_karaoke_video(song: Dict[str, Any], filename_prefix: str = "karaoke
             duration = 15.0
 
     # Create temporary ASS subtitle file
-    ass_content = generate_ass_subtitles(song, duration)
+    ass_content = generate_ass_subtitles(song, duration, theme)
     ass_path = VIDEOS_DIR / f"temp_{timestamp}.ass"
     with open(ass_path, "w", encoding="utf-8") as f:
         f.write(ass_content)
@@ -135,7 +172,7 @@ def generate_karaoke_video(song: Dict[str, Any], filename_prefix: str = "karaoke
         if audio_path and Path(audio_path).exists():
             cmd = [
                 "ffmpeg", "-y",
-                "-f", "lavfi", "-i", f"color=c=#0B1120:s=1280x720:d={duration}",
+                "-f", "lavfi", "-i", f"color=c={theme['bg_color']}:s={VIDEO_W}x{VIDEO_H}:r=5:d={duration}",
                 "-i", audio_path,
                 "-vf", f"ass={escape_filter_path(ass_path)}",
                 "-c:v", "libx264", "-preset", "fast", "-pix_fmt", "yuv420p",
@@ -147,7 +184,7 @@ def generate_karaoke_video(song: Dict[str, Any], filename_prefix: str = "karaoke
             # Fallback to silent stereo audio track
             cmd = [
                 "ffmpeg", "-y",
-                "-f", "lavfi", "-i", f"color=c=#0B1120:s=1280x720:d={duration}",
+                "-f", "lavfi", "-i", f"color=c={theme['bg_color']}:s={VIDEO_W}x{VIDEO_H}:r=5:d={duration}",
                 "-f", "lavfi", "-i", f"anullsrc=r=44100:cl=stereo",
                 "-vf", f"ass={escape_filter_path(ass_path)}",
                 "-c:v", "libx264", "-preset", "fast", "-pix_fmt", "yuv420p",
@@ -167,7 +204,7 @@ def generate_karaoke_video(song: Dict[str, Any], filename_prefix: str = "karaoke
 
     return str(out_path)
 
-def generate_performance_video(songs: List[Dict[str, Any]], title: str = "הופעה", filename_prefix: str = "performance") -> str:
+def generate_performance_video(songs: List[Dict[str, Any]], title: str = "הופעה", filename_prefix: str = "performance", theme: Optional[Dict[str, Any]] = None) -> str:
     """Render a unified full-length MP4 movie containing all songs in the performance."""
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     if not songs:
@@ -175,13 +212,13 @@ def generate_performance_video(songs: List[Dict[str, Any]], title: str = "הופ
 
     # If only 1 song, simply generate that song's video
     if len(songs) == 1:
-        return generate_karaoke_video(songs[0], filename_prefix=filename_prefix)
+        return generate_karaoke_video(songs[0], filename_prefix=filename_prefix, theme=theme)
 
     # Generate video for each song
     song_video_paths = []
     for idx, song in enumerate(songs, 1):
         prefix = f"{filename_prefix}_part{idx}"
-        v_path = generate_karaoke_video(song, filename_prefix=prefix)
+        v_path = generate_karaoke_video(song, filename_prefix=prefix, theme=theme)
         song_video_paths.append(v_path)
 
     timestamp = int(time.time())

@@ -17,6 +17,7 @@ from app.database import (
 from app.pptx_generator import generate_presentation
 from app.video_generator import generate_karaoke_video, generate_performance_video
 from app.sample_data import seed_sample_data_if_empty
+from app.theme import resolve_theme
 
 app = FastAPI(title="Sing-Along Studio API", version="1.0.0")
 
@@ -129,6 +130,7 @@ def api_export_pptx(req: ExportPptxRequest):
     songs_to_export = []
     title = "שירה בציבור"
     prefix = "presentation"
+    theme = None
 
     if req.performance_id:
         perf = get_performance(req.performance_id)
@@ -137,6 +139,7 @@ def api_export_pptx(req: ExportPptxRequest):
         songs_to_export = perf.get("songs", [])
         title = perf.get("title", "שירה בציבור")
         prefix = perf.get("id", "performance")
+        theme = resolve_theme(perf)
     elif req.song_id:
         song = get_song(req.song_id)
         if not song:
@@ -150,7 +153,7 @@ def api_export_pptx(req: ExportPptxRequest):
     if not songs_to_export:
         raise HTTPException(status_code=400, detail="No songs to export")
 
-    file_path = generate_presentation(songs_to_export, title=title, filename_prefix=prefix)
+    file_path = generate_presentation(songs_to_export, title=title, filename_prefix=prefix, theme=theme)
     filename = Path(file_path).name
 
     return {
@@ -173,7 +176,8 @@ def api_export_video(req: ExportVideoRequest):
         songs = perf.get("songs", [])
         if not songs:
             raise HTTPException(status_code=400, detail="Performance contains no songs")
-        file_path = generate_performance_video(songs, title=perf.get("title", "הופעה"), filename_prefix=perf.get("id", "performance"))
+        file_path = generate_performance_video(songs, title=perf.get("title", "הופעה"), filename_prefix=perf.get("id", "performance"),
+                                               theme=resolve_theme(perf))
         filename = Path(file_path).name
         return {
             "success": True,
