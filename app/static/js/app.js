@@ -612,20 +612,37 @@ function formatIsoDateHe(iso) {
   return `${Number(d)}.${Number(m)}.${y}`;
 }
 
+const AI_PROGRESS_YOUTUBE = "מוריד את הסרטון, מעלה אותו ל-Google ומבקש מ-Gemini לתזמן את הבתים...";
+const AI_PROGRESS_SINGER = "מוריד את גרסת הזמר, מעלה את שני קבצי השמע ל-Google ומבקש מ-Gemini לתזמן את גרסת הקריוקי...";
+
+// The song's own audio (an imported file/video, or the audio of a saved song)
+function studioHasAudio() {
+  return !!selectedAudioFile || !!(currentEditingSong && currentEditingSong.has_audio);
+}
+
 function setupAiTiming() {
   const btn = document.getElementById("btn-ai-timing");
   const menu = document.getElementById("ai-timing-menu");
   const youtubeOption = document.getElementById("ai-opt-youtube");
+  const singerOption = document.getElementById("ai-opt-singer");
+  const singerUrlInput = document.getElementById("ai-singer-url");
+  const modal = document.getElementById("ai-timing-modal");
 
   const closeMenu = () => {
     menu.hidden = true;
     btn.setAttribute("aria-expanded", "false");
   };
   const openMenu = () => {
-    // The YouTube option needs the song's audio to have come from a YouTube link
-    const available = !!studioYoutubeUrl;
-    youtubeOption.disabled = !available;
-    document.getElementById("ai-opt-youtube-hint").innerText = available ? "" : "זמין רק לשירים שיובאו מקישור יוטיוב";
+    // "By YouTube video" needs the song's audio to have come from a YouTube link
+    const youtubeAvailable = !!studioYoutubeUrl;
+    youtubeOption.disabled = !youtubeAvailable;
+    document.getElementById("ai-opt-youtube-hint").innerText = youtubeAvailable ? "" : "זמין רק לשירים שיובאו מקישור יוטיוב";
+    // "By singer version" needs any audio for the song: that is the karaoke version
+    const hasAudio = studioHasAudio();
+    singerOption.disabled = !hasAudio;
+    document.getElementById("ai-opt-singer-hint").innerText = hasAudio
+      ? "לשירים בלי סרטון קריוקי: צרף קישור לגרסה עם זמר"
+      : "דורש קובץ שמע לשיר (גרסת הקריוקי)";
     menu.hidden = false;
     btn.setAttribute("aria-expanded", "true");
   };
@@ -644,12 +661,42 @@ function setupAiTiming() {
     closeMenu();
     timeLyricsFromYoutube();
   });
-  document.getElementById("ai-modal-close").addEventListener("click", () => {
-    document.getElementById("ai-timing-modal").classList.remove("active");
+  singerOption.addEventListener("click", () => {
+    closeMenu();
+    showAiSingerInput();
   });
+
+  const startSingerTiming = () => {
+    const url = singerUrlInput.value.trim();
+    if (!url) {
+      showToast("נא להדביק קישור ליוטיוב של גרסה עם זמר", "error");
+      return;
+    }
+    timeLyricsWithSingerVersion(url);
+  };
+  document.getElementById("ai-singer-start").addEventListener("click", startSingerTiming);
+  singerUrlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      startSingerTiming();
+    }
+  });
+  document.getElementById("ai-singer-cancel").addEventListener("click", () => modal.classList.remove("active"));
+  document.getElementById("ai-modal-close").addEventListener("click", () => modal.classList.remove("active"));
 }
 
-function showAiProgress() {
+function showAiSingerInput() {
+  document.getElementById("ai-modal-progress").hidden = true;
+  document.getElementById("ai-modal-result").hidden = true;
+  document.getElementById("ai-modal-close").hidden = true;
+  document.getElementById("ai-modal-input").hidden = false;
+  document.getElementById("ai-timing-modal").classList.add("active");
+  document.getElementById("ai-singer-url").focus();
+}
+
+function showAiProgress(message) {
+  document.getElementById("ai-modal-input").hidden = true;
+  document.getElementById("ai-modal-progress-text").innerText = message;
   document.getElementById("ai-modal-progress").hidden = false;
   document.getElementById("ai-modal-result").hidden = true;
   document.getElementById("ai-modal-close").hidden = true;
@@ -665,6 +712,7 @@ function showAiProgress() {
 
 function showAiResult(html) {
   clearInterval(aiTimerInterval);
+  document.getElementById("ai-modal-input").hidden = true;
   document.getElementById("ai-modal-progress").hidden = true;
   const result = document.getElementById("ai-modal-result");
   result.innerHTML = html;
@@ -700,12 +748,10 @@ function renderAiCost(cost) {
     </p>`;
 }
 
-async function timeLyricsFromYoutube() {
+// Shared by every AI timing option: checks, progress dialog, applying the result, showing the cost.
+// sendRequest(verseTexts) must return the fetch Response of the option's API call.
+async function runAiTiming(progressMessage, sendRequest) {
   syncVersesFromLyrics();  // apply any edit still waiting for the delay
-  if (!studioYoutubeUrl) {
-    showToast("התזמון לפי יוטיוב זמין רק לשיר שיובא מקישור יוטיוב", "error");
-    return;
-  }
   if (studioVerses.length === 0) {
     showToast("נא להוסיף מילים לפני התזמון האוטומטי", "error");
     return;
@@ -715,18 +761,9 @@ async function timeLyricsFromYoutube() {
   }
 
   const sentTexts = studioVerses.map(v => v.text);
-  showAiProgress();
+  showAiProgress(progressMessage);
   try {
-    const res = await fetch("/api/ai/time-verses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        youtube_url: studioYoutubeUrl,
-        verses: sentTexts,
-        title: document.getElementById("song-title").value.trim(),
-        artist: document.getElementById("song-artist").value.trim()
-      })
-    });
+    const res = await sendRequest(sentTexts);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || "התזמון האוטומטי נכשל");
 
@@ -756,6 +793,45 @@ async function timeLyricsFromYoutube() {
   } catch (err) {
     showAiResult(`<p style="color: var(--accent-red); font-weight: 700;">❌ ${escapeHtml(err.message)}</p>`);
   }
+}
+
+// Option 1: the song's audio came from a YouTube video that shows/sings the lyrics
+function timeLyricsFromYoutube() {
+  if (!studioYoutubeUrl) {
+    showToast("התזמון לפי יוטיוב זמין רק לשיר שיובא מקישור יוטיוב", "error");
+    return;
+  }
+  return runAiTiming(AI_PROGRESS_YOUTUBE, (verseTexts) => fetch("/api/ai/time-verses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      youtube_url: studioYoutubeUrl,
+      verses: verseTexts,
+      title: document.getElementById("song-title").value.trim(),
+      artist: document.getElementById("song-artist").value.trim()
+    })
+  }));
+}
+
+// Option 2: the song's audio is a karaoke version; a YouTube version with a singer guides the timing
+function timeLyricsWithSingerVersion(singerUrl) {
+  if (!studioHasAudio()) {
+    showToast("לשיר אין קובץ שמע (גרסת קריוקי)", "error");
+    return;
+  }
+  return runAiTiming(AI_PROGRESS_SINGER, (verseTexts) => {
+    const form = new FormData();
+    form.append("singer_url", singerUrl);
+    form.append("verses", JSON.stringify(verseTexts));
+    form.append("title", document.getElementById("song-title").value.trim());
+    form.append("artist", document.getElementById("song-artist").value.trim());
+    if (selectedAudioFile) {
+      form.append("karaoke_audio", selectedAudioFile, selectedAudioFile.name || "karaoke.mp3");
+    } else if (currentEditingSong && currentEditingSong.id) {
+      form.append("song_id", currentEditingSong.id);  // the server reads the saved audio itself
+    }
+    return fetch("/api/ai/time-verses-singer", { method: "POST", body: form });
+  });
 }
 
 function recordTapTimestamp() {

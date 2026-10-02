@@ -167,6 +167,10 @@
                   <span>▶️ תזמן לפי סרטון יוטיוב</span>
                   <small id="ai-opt-youtube-hint"></small>
                 </button>
+                <button type="button" class="ai-menu-item" id="ai-opt-singer" role="menuitem">
+                  <span>🎤 תזמן לפי גרסה עם זמר</span>
+                  <small id="ai-opt-singer-hint"></small>
+                </button>
               </div>
             </div>
           </div>
@@ -413,9 +417,22 @@
     <div class="modal-content">
       <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">🪄 תזמון אוטומטי <span class="ai-badge">AI</span></h3>
 
-      <div id="ai-modal-progress">
+      <!-- Singer-version option: ask for the link -->
+      <div id="ai-modal-input" hidden>
+        <p style="line-height: 1.6;">
+          קובץ השמע של השיר נחשב לגרסת <strong>הקריוקי</strong>. הדבק קישור ליוטיוב של גרסה <strong>עם זמר</strong>:
+          Gemini ישמע את שתי הגרסאות וישתמש בגרסת הזמר כדי לתזמן את הבתים בגרסת הקריוקי.
+        </p>
+        <input type="url" id="ai-singer-url" class="form-input" dir="ltr" style="margin-top: 0.75rem;" placeholder="https://www.youtube.com/watch?v=...">
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+          <button type="button" class="btn btn-secondary btn-sm" id="ai-singer-cancel">ביטול</button>
+          <button type="button" class="btn btn-sm btn-ai" id="ai-singer-start"><span>🪄</span><span>התחל תזמון</span></button>
+        </div>
+      </div>
+
+      <div id="ai-modal-progress" hidden>
         <div class="ai-spinner"></div>
-        <p style="text-align: center; margin-top: 1rem;">מוריד את הסרטון, מעלה אותו ל-Google ומבקש מ-Gemini לתזמן את הבתים...</p>
+        <p id="ai-modal-progress-text" style="text-align: center; margin-top: 1rem;">מוריד את הסרטון, מעלה אותו ל-Google ומבקש מ-Gemini לתזמן את הבתים...</p>
         <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.4rem;">
           זה לוקח בדרך כלל חצי דקה עד שתיים. עברו <span id="ai-modal-elapsed">0</span> שניות.
         </p>

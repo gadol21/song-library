@@ -1,5 +1,6 @@
 import re
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -36,6 +37,19 @@ def _ffmpeg_dir() -> str:
     if found:
         return str(Path(found).parent)
     return str(BASE_DIR / "ffmpeg" / "bin")
+
+def ffprobe_duration(path: Path) -> float:
+    """Length in seconds of an audio or video file (0.0 if it can't be read)."""
+    probe = shutil.which("ffprobe", path=_ffmpeg_dir()) or shutil.which("ffprobe")
+    if not probe:
+        return 0.0
+    try:
+        out = subprocess.run(
+            [probe, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+            capture_output=True, text=True, timeout=30)
+        return float(out.stdout.strip())
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return 0.0
 
 def _js_runtimes() -> Dict[str, Dict[str, str]]:
     """JavaScript runtimes found on this machine (YouTube needs one for its normal streams).

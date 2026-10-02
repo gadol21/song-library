@@ -1,5 +1,6 @@
 import os
 import json
+import tempfile
 from pathlib import Path
 from typing import Optional, List
 
@@ -7,6 +8,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from urllib.parse import quote
 
@@ -20,7 +22,7 @@ from app.video_generator import generate_karaoke_video, generate_performance_vid
 from app.sample_data import seed_sample_data_if_empty
 from app.theme import resolve_theme
 from app.youtube import download_audio_mp3, AudioDownloadError
-from app.gemini_timing import time_verses_from_youtube, GeminiTimingError
+from app.gemini_timing import time_verses_from_youtube, time_verses_from_singer_version, GeminiTimingError
 
 app = FastAPI(title="Sing-Along Studio API", version="1.0.0")
 
@@ -126,6 +128,42 @@ def api_ai_time_verses(req: AiTimingRequest):
         return time_verses_from_youtube(req.youtube_url, req.verses, title=req.title, artist=req.artist)
     except GeminiTimingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/ai/time-verses-singer")
+async def api_ai_time_verses_singer(
+    singer_url: str = Form(...),
+    verses: str = Form(...),
+    title: str = Form(""),
+    artist: str = Form(""),
+    song_id: Optional[str] = Form(None),
+    karaoke_audio: Optional[UploadFile] = File(None),
+):
+    """Time the verses in the song's own audio (the karaoke version) with the help of a version with a singer.
+
+    The karaoke audio is the uploaded file, or else the audio saved for song_id.
+    """
+    try:
+        verse_texts = json.loads(verses)
+        if not isinstance(verse_texts, list) or not all(isinstance(v, str) for v in verse_texts):
+            raise ValueError
+    except ValueError:
+        raise HTTPException(status_code=400, detail="רשימת הבתים אינה תקינה")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        if karaoke_audio is not None and karaoke_audio.filename:
+            karaoke_path = Path(tmp) / f"karaoke{Path(karaoke_audio.filename).suffix or '.mp3'}"
+            karaoke_path.write_bytes(await karaoke_audio.read())
+        else:
+            song = get_song(song_id) if song_id else None
+            if not song or not song.get("audio_path"):
+                raise HTTPException(status_code=400, detail="לשיר אין קובץ שמע. הוסף קובץ שמע או שמור את השיר קודם.")
+            karaoke_path = Path(song["audio_path"])
+        try:
+            # Downloading, uploading and waiting for Gemini block, so keep them off the event loop
+            return await run_in_threadpool(
+                time_verses_from_singer_version, singer_url, karaoke_path, verse_texts, title, artist)
+        except GeminiTimingError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 # ----------------- PERFORMANCES API -----------------
 
