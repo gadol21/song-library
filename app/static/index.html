@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sing-Along Studio | אולפן שירה בציבור וקריוקי</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- Google Fonts for Hebrew and Clean Presentation -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Navigation Header -->
+  <header>
+    <div class="header-container">
+      <a href="#" class="logo">
+        <span>🎤</span>
+        <span>Sing-Along Studio</span>
+        <span class="logo-badge">שירה בציבור</span>
+      </a>
+
+      <nav>
+        <button class="nav-btn active" data-tab="library">
+          <span>📚</span>
+          <span>ספריית שירים</span>
+        </button>
+        <button class="nav-btn" data-tab="studio">
+          <span>🎙️</span>
+          <span>אולפן תזמון</span>
+        </button>
+        <button class="nav-btn" data-tab="setlist">
+          <span>📋</span>
+          <span>בניית הופעה</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- TAB 1: SONG LIBRARY -->
+    <section id="tab-library" class="tab-pane active">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title"><span>📚</span> ספריית השירים שלי</h1>
+          <p class="section-subtitle">מאגר השירים המתוזמנים שלך. כל שיר נשמר עם קובץ שמע, מילים ותזמונים מדויקים.</p>
+        </div>
+        <button class="btn btn-gold" id="btn-add-new-song">
+          <span>➕</span>
+          <span>הוסף שיר חדש</span>
+        </button>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <input type="text" id="library-search" class="search-input" placeholder="🔍 חיפוש לפי שם שיר או אמן...">
+        <select id="library-lang-filter" class="form-select" style="max-width: 180px;">
+          <option value="all">כל השפות (All)</option>
+          <option value="he">🇮🇱 עברית בלבד</option>
+          <option value="en">🇬🇧 English Only</option>
+        </select>
+      </div>
+
+      <!-- Songs Grid -->
+      <div id="songs-container" class="cards-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 2: TAP-TO-SYNC STUDIO -->
+    <section id="tab-studio" class="tab-pane">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title"><span>🎙️</span> אולפן תזמון בתים (Tap-to-Sync)</h1>
+          <p class="section-subtitle">הוסף קובץ MP3 והדבק מילים. נגן את השיר והקש [רווח] כדי לתזמן כל בית בקלות!</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" id="btn-studio-reset">איפוס טופס</button>
+          <button class="btn btn-gold" id="btn-studio-export-video" title="שמור וייצא כסרטון וידאו MP4">
+            <span>🎬</span>
+            <span>ייצוא סרטון וידאו (MP4)</span>
+          </button>
+          <button class="btn btn-primary" id="btn-save-song">
+            <span>💾</span>
+            <span>שמור בספרייה</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="studio-layout">
+        <!-- Left Panel: Song Info & Lyrics Input -->
+        <div class="panel">
+          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent-cyan);">1. פרטי השיר והמילים</h2>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">שם השיר (Title)</label>
+              <input type="text" id="song-title" class="form-input" placeholder="למשל: עוד לא תמו כל פלאייך">
+            </div>
+            <div class="form-group">
+              <label class="form-label">שם האמן / מבצע (Artist)</label>
+              <input type="text" id="song-artist" class="form-input" placeholder="למשל: רמי קלינשטיין">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">שפה וכיוון כתיבה</label>
+              <select id="song-language" class="form-select">
+                <option value="he">🇮🇱 עברית (מימין לשמאל - RTL)</option>
+                <option value="en">🇬🇧 English (Left-to-Right)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">קובץ שמע (MP3 / Audio)</label>
+              <input type="file" id="song-audio-file" class="form-input" accept="audio/*">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <label class="form-label" style="margin-bottom: 0;">מילות השיר (הדבק כאן)</label>
+              <div style="display: flex; gap: 0.4rem;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-parse-stanzas" title="יוצר בית מכל פסקה עם שורה רווח">פצל לפי בתים (פסקאות)</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-parse-lines" title="יוצר בית מכל שורה בודדת">פצל לפי שורות</button>
+              </div>
+            </div>
+            <textarea id="song-raw-lyrics" class="form-textarea" placeholder="הדבק כאן את מילות השיר...
+לדוגמה:
+
+ארצנו הקטנטונת, ארצנו היפה
+מולדת בלי כותונת, מולדת יחפה
+
+קבליני אל שירייך, כלה יפהפיה
+פתחי לי שערייך, אבוא בם אודה יה"></textarea>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.3rem;">
+              <span id="verse-count-badge">זוהו 0 בתים</span>
+              <span>טיפ: רווח כפול בין פסקאות יפריד ביניהן לבתים נפרדים</span>
+            </div>
+          </div>
+
+          <!-- Hidden audio element for timing -->
+          <audio id="studio-audio" preload="auto"></audio>
+        </div>
+
+        <!-- Right Panel: Tap-to-Sync & Real-time Live Preview -->
+        <div class="panel" style="display: flex; flex-direction: column;">
+          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent-gold);">2. תזמון בלייב ותצוגה מקדימה</h2>
+
+          <!-- Controller -->
+          <div class="sync-controller">
+            <div class="time-display" id="audio-time-display">00:00.0 / 00:00.0</div>
+            <input type="range" id="audio-scrubber" class="audio-scrubber" min="0" max="100" value="0" step="0.1">
+
+            <div style="display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 1rem;">
+              <button class="btn btn-secondary" id="btn-play-pause">
+                <span id="play-icon">▶️</span>
+                <span id="play-text">נגן מוזיקה</span>
+              </button>
+              <button class="btn btn-secondary" id="btn-stop">
+                <span>⏹️</span>
+                <span>התחל מהתחלה</span>
+              </button>
+              <button class="btn btn-secondary" id="btn-toggle-preview">
+                <span>👁️</span>
+                <span id="preview-mode-text">מצב תצוגה מקדימה</span>
+              </button>
+            </div>
+
+            <!-- Big Spacebar Tap Button -->
+            <button class="tap-button" id="btn-tap-sync">
+              <span>⚡</span>
+              <span>הקש [רווח] - סמן תחילת בית!</span>
+            </button>
+          </div>
+
+          <!-- Live Stage Mini-Preview -->
+          <div style="margin-bottom: 1rem;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.4rem;">תצוגה מקדימה חיה (כך זה ייראה על המסך בהופעה):</div>
+            <div class="stage-preview" id="stage-preview-box">
+              <div class="stage-preview-title" id="stage-preview-title">שם השיר יופיע כאן</div>
+              <div class="stage-preview-lyrics" id="stage-preview-text">המילים יופיעו כאן בזמן אמת...</div>
+              <div class="stage-preview-next" id="stage-preview-next"></div>
+            </div>
+          </div>
+
+          <!-- Interactive Verses Timing Table -->
+          <div style="flex: 1; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.9rem; font-weight: 600;">רשימת הבתים והתזמונים:</span>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-timings">נקה תזמונים</button>
+            </div>
+            <div id="verses-list" class="verses-list">
+              <!-- Dynamically populated -->
+              <div style="color: var(--text-muted); text-align: center; padding: 2rem;">
+                הדבק מילים משמאל ולחץ "פצל לפי בתים" כדי להתחיל בתזמון.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: SETLIST BUILDER -->
+    <section id="tab-setlist" class="tab-pane">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title"><span>📋</span> בניית הופעה וייצוא מצגת / וידאו</h1>
+          <p class="section-subtitle">בחר שירים מהספרייה, סדר אותם לפי רצף ההופעה, ובלחיצת כפתור אחת צור מצגת או סרטון קריוקי.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" id="btn-new-performance">הופעה חדשה</button>
+          <button class="btn btn-primary" id="btn-save-performance">
+            <span>💾</span>
+            <span>שמור רשימת שירים</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Performance Selector Bar -->
+      <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; background: var(--bg-secondary); padding: 0.85rem 1.25rem; border-radius: 10px; border: 1px solid var(--border-color);">
+        <label style="font-weight: 700; white-space: nowrap; color: var(--accent-cyan);">📁 הופעה נבחרת:</label>
+        <select id="perf-selector" class="form-select" style="flex: 1;"></select>
+        <button class="btn btn-gold btn-sm" id="btn-new-performance">➕ הופעה חדשה</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete-performance" title="מחק הופעה זו">🗑️ מחק</button>
+      </div>
+
+      <div class="studio-layout">
+        <!-- Setlist Configuration & Order -->
+        <div class="panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="font-size: 1.15rem; color: var(--accent-gold); margin-bottom: 0;">רשימת השירים להופעה</h2>
+            <button class="btn btn-secondary btn-sm" id="btn-clear-setlist-queue" title="נקה את כל השירים מהרשימה">
+              <span>🧹 נקה רשימה</span>
+            </button>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">שם ההופעה / אירוע</label>
+              <input type="text" id="perf-title" class="form-input" placeholder="למשל: ערב שירי ארץ ישראל - יום העצמאות">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">תאריך</label>
+              <input type="date" id="perf-date" class="form-input">
+            </div>
+          </div>
+
+          <!-- Stats Bar -->
+          <div style="background: var(--bg-primary); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-around; margin-bottom: 1.25rem;">
+            <div>סה"כ שירים: <strong id="perf-count" style="color: var(--accent-cyan);">0</strong></div>
+            <div>זמן משוער: <strong id="perf-duration" style="color: var(--accent-gold);">0 דק'</strong></div>
+          </div>
+
+          <!-- Performance Songs Queue -->
+          <div id="perf-songs-list" class="verses-list" style="min-height: 250px;">
+            <!-- Populated dynamically -->
+            <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+              לא נבחרו שירים עדיין. הוסף שירים מהמאגר בצד שמאל ⬅️
+            </div>
+          </div>
+
+          <!-- Export Actions -->
+          <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.75rem;">
+            <h3 style="font-size: 1rem; margin-bottom: 0.25rem;">ייצוא והפעלה:</h3>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <button class="btn btn-gold" id="btn-export-perf-pptx" style="flex: 1;">
+                <span>📊</span>
+                <span>הורד מצגת PowerPoint (.pptx)</span>
+              </button>
+              <button class="btn btn-primary" id="btn-export-perf-video" style="flex: 1; background: linear-gradient(135deg, #0284c7, #6366f1); color: white;">
+                <span>🎬</span>
+                <span>ייצוא סרטון וידאו של ההופעה (.mp4)</span>
+              </button>
+              <button class="btn btn-secondary" id="btn-launch-fullscreen" style="flex: 1; border: 1px solid var(--accent-cyan); color: var(--accent-cyan);">
+                <span>🎤</span>
+                <span>הפעל מצב במה חי (מסך מלא + מוזיקה)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Songs from Library -->
+        <div class="panel">
+          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent-cyan);">בחר שירים מהספרייה</h2>
+          <div class="form-group">
+            <input type="text" id="setlist-search" class="search-input" placeholder="🔍 סנן שירים להוספה...">
+          </div>
+          <div id="setlist-available-songs" class="verses-list" style="max-height: 520px;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Fullscreen Live Stage Presentation & Music Player -->
+  <div id="fullscreen-stage">
+    <button class="fs-close-btn" id="fs-close-btn">יציאה (ESC) ✕</button>
+    <div class="fs-header">
+      <span id="fs-song-title">שם השיר</span>
+      <span id="fs-verse-index" style="color: var(--accent-gold);">(1/3)</span>
+    </div>
+    <div class="fs-lyrics" id="fs-lyrics-text">
+      מילות השיר יופיעו כאן בגופן ענק וברור
+    </div>
+    <div class="fs-footer">
+      <span>הקש [רווח] כדי לנגן/להשהות | [חצים] למעבר שיר/בית</span>
+      <span id="fs-next-preview" style="color: var(--text-muted); font-size: 0.95rem;"></span>
+    </div>
+
+    <!-- Hidden audio element driving the live stage show -->
+    <audio id="fs-audio" preload="auto"></audio>
+
+    <!-- Floating Live Stage Control Dock -->
+    <div class="fs-player-dock" id="fs-player-dock">
+      <div class="fs-track-info">
+        <div id="fs-dock-title" style="font-weight: 700; color: #fff;"></div>
+        <div id="fs-dock-artist" style="font-size: 0.85rem; color: var(--accent-gold);"></div>
+      </div>
+      
+      <div class="fs-player-controls">
+        <button class="fs-icon-btn" id="fs-prev-song" title="שיר קודם">⏮️</button>
+        <button class="fs-icon-btn fs-play-main" id="fs-play-btn" title="נגן / השהה מוזיקה">▶️</button>
+        <button class="fs-icon-btn" id="fs-next-song" title="שיר הבא">⏭️</button>
+        <button class="fs-icon-btn" id="fs-restart-song" title="התחל שיר מחדש">🔄</button>
+      </div>
+
+      <div class="fs-timeline-container">
+        <span id="fs-cur-time" style="font-family: monospace; font-size: 0.9rem; color: var(--accent-cyan);">00:00</span>
+        <input type="range" id="fs-timeline-scrubber" min="0" max="100" value="0" step="0.1">
+        <span id="fs-dur-time" style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">00:00</span>
+      </div>
+
+      <div class="fs-toggles">
+        <button class="btn btn-sm btn-secondary" id="fs-toggle-autosync" title="סנכרון שקופיות אוטומטי לפי המוזיקה">
+          <span id="fs-autosync-dot">🟢</span>
+          <span id="fs-autosync-label">סנכרון מוזיקה: פועל</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Play & Lyric Preview Modal -->
+  <div class="modal-overlay" id="preview-modal">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+        <div>
+          <h3 id="modal-song-title" style="font-size: 1.3rem; font-weight: 700;"></h3>
+          <div id="modal-song-artist" style="color: var(--accent-gold); font-size: 0.95rem;"></div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="modal-close-btn">✕ סגור</button>
+      </div>
+
+      <div class="stage-preview" style="height: 200px; margin-bottom: 1rem;">
+        <div class="stage-preview-lyrics" id="modal-preview-lyrics"></div>
+      </div>
+
+      <audio id="modal-audio" controls style="width: 100%; margin-bottom: 1rem;"></audio>
+
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" id="modal-export-pptx">📊 הורד PowerPoint</button>
+        <button class="btn btn-primary btn-sm" id="modal-export-video">🎬 צור וידאו MP4</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Application Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
