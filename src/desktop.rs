@@ -32,6 +32,12 @@ window.pywebview = { api: {
 } };
 "#;
 
+/// Open an Explorer window with the saved file selected. Failure is not worth reporting: the file is already saved.
+fn reveal_in_explorer(path: &Path) {
+    use std::os::windows::process::CommandExt;
+    let _ = std::process::Command::new("explorer.exe").raw_arg(format!("/select,\"{}\"", path.display())).spawn();
+}
+
 /// Copy a finished export to a place the user picks. Returns the saved path, or None if cancelled.
 fn save_export(folder: &str, filename: &str) -> Result<Option<String>, String> {
     let dir = match folder {
@@ -52,6 +58,7 @@ fn save_export(folder: &str, filename: &str) -> Result<Option<String>, String> {
     }
     let Some(target) = dialog.save_file() else { return Ok(None) };
     std::fs::copy(&source, &target).map_err(|e| e.to_string())?;
+    reveal_in_explorer(&target);
     Ok(Some(target.to_string_lossy().into_owned()))
 }
 
