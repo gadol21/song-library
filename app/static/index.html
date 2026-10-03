@@ -454,6 +454,26 @@
     </div>
   </div>
 
+  <!-- PowerPoint export options -->
+  <div class="modal-overlay" id="pptx-options-modal">
+    <div class="modal-content">
+      <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">📊 אפשרויות ייצוא PowerPoint</h3>
+
+      <label class="video-option">
+        <input type="checkbox" id="pptx-wait-click" checked>
+        <div>
+          <strong>המתן ללחיצה לפני כל שיר</strong>
+          <small>כל שיר עם שמע נעצר במסך הכותרת עד שתלחץ. אחרי הלחיצה השמע וההחלפה האוטומטית של הבתים מתחילים. כבוי: השיר מתחיל מעצמו.</small>
+        </div>
+      </label>
+
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem;">
+        <button type="button" class="btn btn-secondary btn-sm" id="pptx-options-cancel">ביטול</button>
+        <button type="button" class="btn btn-primary btn-sm" id="pptx-options-confirm">📊 ייצא מצגת</button>
+      </div>
+    </div>
+  </div>
+
   <!-- AI Timing: progress & result -->
   <div class="modal-overlay" id="ai-timing-modal">
     <div class="modal-content">

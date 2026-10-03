@@ -301,8 +301,11 @@ def _embed_audio(slide, audio_file: Path, across_slides: int):
 </p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>"""))
 
 def generate_presentation(songs: List[Dict[str, Any]], title: str = "שירה בציבור", filename_prefix: str = "performance",
-                          theme: Optional[Dict[str, Any]] = None) -> str:
+                          theme: Optional[Dict[str, Any]] = None, wait_for_click: bool = True) -> str:
     """Generate a complete 16:9 widescreen presentation deck for a setlist or song.
+
+    With wait_for_click, each song with audio stays on its title slide until the presenter clicks; the audio and
+    the timed slides then start from that click.
 
     A song with audio gets it embedded; if its verses are timed, the slides also advance by themselves,
     each shown for exactly its verse, and the audio starts playing on its own.
@@ -332,10 +335,29 @@ def generate_presentation(songs: List[Dict[str, Any]], title: str = "שירה ב
             if audio_file is None:
                 continue
             plan = _slide_durations(song, _audio_duration(song, str(audio_path)))
+            durations = [plan["title"], *plan["verses"]] if plan else None
             audio_slide = 1 if plan and not plan["audio_on_title"] and len(slides) > 1 else 0
-            if plan:
-                for slide, seconds in zip(slides, [plan["title"], *plan["verses"]]):
-                    _set_auto_advance(slide, seconds)
+            if wait_for_click:
+                # The first title slide waits for a click; the audio starts on the slide after it
+                if plan and plan["audio_on_title"]:
+                    # An identical copy of the title carries the audio and the intro time, so nothing changes on screen
+                    first = len(prs.slides) - len(slides)  # position of this song's title slide in the deck
+                    copy = create_song_title_slide(prs, song, theme, sizes, perf_title=title)
+                    id_list = prs.slides._sldIdLst
+                    moved = id_list[-1]
+                    id_list.remove(moved)
+                    id_list.insert(first + 1, moved)
+                    slides.insert(1, copy)
+                    durations.insert(0, None)
+                    audio_slide = 1
+                elif plan:
+                    durations[0] = None
+                elif len(slides) > 1:
+                    audio_slide = 1
+            if durations:
+                for slide, seconds in zip(slides, durations):
+                    if seconds is not None:
+                        _set_auto_advance(slide, seconds)
             _embed_audio(slides[audio_slide], audio_file, across_slides=len(slides) - audio_slide)
 
         # Save inside the temp dir's lifetime: a converted audio copy is read from it

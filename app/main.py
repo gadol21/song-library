@@ -208,6 +208,7 @@ def api_delete_performance(perf_id: str):
 class ExportPptxRequest(BaseModel):
     performance_id: Optional[str] = None
     song_id: Optional[str] = None
+    wait_for_click: bool = True
 
 @app.post("/api/export/pptx")
 def api_export_pptx(req: ExportPptxRequest):
@@ -237,7 +238,8 @@ def api_export_pptx(req: ExportPptxRequest):
     if not songs_to_export:
         raise HTTPException(status_code=400, detail="No songs to export")
 
-    file_path = generate_presentation(songs_to_export, title=title, filename_prefix=prefix, theme=theme)
+    file_path = generate_presentation(songs_to_export, title=title, filename_prefix=prefix, theme=theme,
+                                    wait_for_click=req.wait_for_click)
     filename = Path(file_path).name
 
     return {

@@ -229,13 +229,41 @@ async function deliverDownload(data, successMessage) {
   if (saved) showToast(`${successMessage} נשמר ב: ${saved}`, "success");
 }
 
+// Ask how the PowerPoint should behave. Resolves to { wait_for_click }, or to null if the user cancels.
+// "Wait for click" is selected every time the dialog opens.
+function askPptxOptions() {
+  const modal = document.getElementById("pptx-options-modal");
+  const waitBox = document.getElementById("pptx-wait-click");
+  waitBox.checked = true;
+  return new Promise(resolve => {
+    const finish = (value) => {
+      modal.classList.remove("active");
+      modal.onclick = null;
+      document.removeEventListener("keydown", onKey);
+      resolve(value);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") finish(null);
+      else if (e.key === "Enter") { e.preventDefault(); finish({ wait_for_click: waitBox.checked }); }
+    };
+    document.addEventListener("keydown", onKey);
+    modal.onclick = (e) => { if (e.target === modal) finish(null); };
+    document.getElementById("pptx-options-confirm").onclick = () => finish({ wait_for_click: waitBox.checked });
+    document.getElementById("pptx-options-cancel").onclick = () => finish(null);
+    modal.classList.add("active");
+    document.getElementById("pptx-options-confirm").focus();
+  });
+}
+
 async function exportSongPptx(songId) {
+  const options = await askPptxOptions();
+  if (!options) return;
   showToast("מייצר מצגת PowerPoint...", "info");
   try {
     const res = await fetch("/api/export/pptx", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ song_id: songId })
+      body: JSON.stringify({ song_id: songId, ...options })
     });
     const data = await res.json();
     if (data.download_url) {
@@ -1551,13 +1579,15 @@ async function savePerformance() {
 }
 
 async function exportPerformancePptx() {
+  const options = await askPptxOptions();
+  if (!options) return;
   await savePerformance();
   showToast("מייצר מצגת PowerPoint לכל השירים בהופעה...", "info");
   try {
     const res = await fetch("/api/export/pptx", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ performance_id: currentPerformance.id })
+      body: JSON.stringify({ performance_id: currentPerformance.id, ...options })
     });
     const data = await res.json();
     if (data.download_url) {
