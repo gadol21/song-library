@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import yt_dlp
 from yt_dlp.utils import match_filter_func
 
-from app.database import BASE_DIR
+from app.database import PROJECT_DIR
 
 # Songs are never this long; the cap also stops accidental livestream/hour-long mix downloads
 MAX_DURATION_SECONDS = 20 * 60
@@ -36,7 +36,7 @@ def _ffmpeg_dir() -> str:
     found = shutil.which("ffmpeg")
     if found:
         return str(Path(found).parent)
-    return str(BASE_DIR / "ffmpeg" / "bin")
+    return str(PROJECT_DIR / "ffmpeg" / "bin")
 
 def ffprobe_duration(path: Path) -> float:
     """Length in seconds of an audio or video file (0.0 if it can't be read)."""

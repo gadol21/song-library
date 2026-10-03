@@ -3,3 +3,5 @@ exports
 *.pyc
 .venv
 .env
+build
+dist

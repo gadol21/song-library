@@ -8,13 +8,17 @@ from typing import List, Dict, Optional, Any
 
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# PROJECT_DIR holds the code and bundled files (ffmpeg, .env.example); inside the desktop build it is read-only.
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+# BASE_DIR holds .env and is what relative data paths are relative to: the project folder, or SINGALONG_HOME
+# (set by the desktop app to a folder under %APPDATA%)
+BASE_DIR = Path(os.environ.get("SINGALONG_HOME") or PROJECT_DIR).resolve()
 
-# Optional .env in the project folder can relocate the data (e.g. onto a backed-up drive)
+# Optional .env can relocate the data (e.g. onto a backed-up drive)
 load_dotenv(BASE_DIR / ".env")
 
 def _env_dir(name: str, default: str) -> Path:
-    """Folder from an environment variable; ~ is expanded and relative paths are relative to the project."""
+    """Folder from an environment variable; ~ is expanded and relative paths are relative to BASE_DIR."""
     raw = os.environ.get(name, "").strip().strip('"').strip("'") or default
     path = Path(raw).expanduser()
     return path if path.is_absolute() else (BASE_DIR / path).resolve()

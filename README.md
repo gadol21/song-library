@@ -61,6 +61,25 @@ The app comes pre-loaded with sample Hebrew and English songs ("עוד לא תמ
 
 ---
 
+## 🖥️ Desktop App (Windows, portable)
+
+The same app also runs in its own window, with no Python or browser setup:
+
+1. Extract `SingAlongStudio-win64.zip` anywhere and double-click `SingAlongStudio.exe`.
+   Windows SmartScreen warns about an unknown app on the first run (the exe is unsigned): choose **More info → Run anyway**.
+2. Settings live in `%APPDATA%\Sing-Along Studio\.env` (paste that into Explorer's address bar). Put your Gemini key there
+   for the automatic timing, and optionally point `SINGALONG_DATA_DIR` / `SINGALONG_EXPORTS_DIR` at other folders
+   (e.g. on a backed-up drive). Restart the app after editing. The defaults are `data` and `exports` inside that same folder.
+3. Exports (PowerPoint / MP4) open a Save As dialog instead of downloading.
+4. If something goes wrong, `%APPDATA%\Sing-Along Studio\logs\app.log` may help.
+
+To build the zip yourself run `build_desktop.bat` (needs the `.venv`, see Quick Start); it writes `dist\SingAlongStudio-win64.zip`.
+YouTube changes often and the downloader (yt-dlp) is frozen into each build, so rebuild now and then if link downloads stop working.
+
+The website mode above keeps working as before.
+
+---
+
 ## 📂 Project Structure
 
 ```
@@ -78,6 +97,9 @@ Nurit/
 ├── exports/
 │   ├── presentations/       # Generated .pptx decks
 │   └── videos/              # Generated .mp4 karaoke videos
+├── desktop.py               # Desktop app launcher (native window around the same server)
+├── desktop.spec             # PyInstaller recipe for the desktop app
+├── build_desktop.bat        # Builds dist\SingAlongStudio-win64.zip
 ├── requirements.txt
 ├── run.sh                   # Startup launcher
 └── README.md

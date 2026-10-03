@@ -214,6 +214,20 @@ function renderSongCards(songs) {
   });
 }
 
+// A finished export is a file on the server. In a browser it downloads; in the desktop app (window.pywebview)
+// a native Save As dialog copies it instead, because the embedded browser does not download files.
+async function deliverDownload(data, successMessage) {
+  const api = window.pywebview && window.pywebview.api;
+  if (!api) {
+    window.location.href = data.download_url;
+    showToast(successMessage, "success");
+    return;
+  }
+  const parts = data.download_url.split("/");
+  const saved = await api.save_export(parts[parts.length - 2], decodeURIComponent(parts[parts.length - 1]));
+  if (saved) showToast(`${successMessage} נשמר ב: ${saved}`, "success");
+}
+
 async function exportSongPptx(songId) {
   showToast("מייצר מצגת PowerPoint...", "info");
   try {
@@ -224,8 +238,7 @@ async function exportSongPptx(songId) {
     });
     const data = await res.json();
     if (data.download_url) {
-      window.location.href = data.download_url;
-      showToast("המצגת נוצרה והורדה בהצלחה!", "success");
+      await deliverDownload(data, "המצגת נוצרה והורדה בהצלחה!");
     }
   } catch (err) {
     showToast("שגיאה ביצירת המצגת", "error");
@@ -299,8 +312,7 @@ async function exportSongVideo(songId, options) {
     });
     const data = await res.json();
     if (data.download_url) {
-      window.location.href = data.download_url;
-      showToast("סרטון הקריוקי נוצר בהצלחה!", "success");
+      await deliverDownload(data, "סרטון הקריוקי נוצר בהצלחה!");
     } else {
       showToast("שגיאה ביצירת הסרטון: " + (data.detail || "שגיאה"), "error");
     }
@@ -1480,8 +1492,7 @@ async function exportPerformancePptx() {
     });
     const data = await res.json();
     if (data.download_url) {
-      window.location.href = data.download_url;
-      showToast(`המצגת נוצרה בהצלחה (${data.song_count} שירים)!`, "success");
+      await deliverDownload(data, `המצגת נוצרה בהצלחה (${data.song_count} שירים)!`);
     }
   } catch (err) {
     showToast("שגיאה ביצירת המצגת להופעה", "error");
@@ -1501,8 +1512,7 @@ async function exportPerformanceVideo() {
     });
     const data = await res.json();
     if (data.download_url) {
-      window.location.href = data.download_url;
-      showToast(`סרטון הווידאו של ההופעה נוצר בהצלחה! (${data.song_count} שירים)`, "success");
+      await deliverDownload(data, `סרטון הווידאו של ההופעה נוצר בהצלחה! (${data.song_count} שירים)`);
     } else {
       showToast("שגיאה ביצירת הווידאו: " + (data.detail || "שגיאה"), "error");
     }
