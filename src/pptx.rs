@@ -3,6 +3,7 @@
 //! The package is the one python-pptx produced: its template parts are embedded verbatim (assets/pptx) and the
 //! slides are written as the same XML. A song with audio gets it embedded; if its verses are timed the slides
 //! also advance by themselves, each shown for exactly its verse, and the audio starts playing on its own.
+//! Every slide has decorative music notes in its side margins (`notes.rs`, the same ones the video shows).
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -10,6 +11,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::audio;
+use crate::notes::{self, Seg};
 use crate::config::paths;
 use crate::py::{self, Dict};
 use crate::storage::detect_language;
@@ -237,6 +239,45 @@ impl SlideXml {
         ));
     }
 
+    /// The decorative music notes around the edge, each a freeform shape (one path per part, so overlaps keep one color).
+    fn music_notes(&mut self, theme: &Theme) {
+        let color = hex(&notes::note_color(theme));
+        let (sx, sy) = (SLIDE_WIDTH as f64 / 1280.0, SLIDE_HEIGHT as f64 / 720.0);
+        for note in notes::frame_notes() {
+            let (l, t, r, b) = notes::bounds(&note);
+            let (x, y) = ((l * sx).floor() as i64, (t * sy).floor() as i64);
+            let (cx, cy) = ((r * sx).ceil() as i64 - x, (b * sy).ceil() as i64 - y);
+            let pt = |px: f64, py: f64| format!(r#"<a:pt x="{}" y="{}"/>"#, (px * sx).round() as i64 - x, (py * sy).round() as i64 - y);
+            let mut paths = String::new();
+            for part in &note {
+                paths.push_str(&format!(r#"<a:path w="{}" h="{}">"#, cx, cy));
+                for seg in part {
+                    match *seg {
+                        Seg::Move(px, py) => paths.push_str(&format!("<a:moveTo>{}</a:moveTo>", pt(px, py))),
+                        Seg::Line(px, py) => paths.push_str(&format!("<a:lnTo>{}</a:lnTo>", pt(px, py))),
+                        Seg::Cubic(x1, y1, x2, y2, px, py) => {
+                            paths.push_str(&format!("<a:cubicBezTo>{}{}{}</a:cubicBezTo>", pt(x1, y1), pt(x2, y2), pt(px, py)))
+                        }
+                    }
+                }
+                paths.push_str("<a:close/></a:path>");
+            }
+            let id = self.next_id;
+            self.next_id += 1;
+            self.shapes.push_str(&format!(
+                r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="Music Note {n}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm><a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/><a:pathLst>{paths}</a:pathLst></a:custGeom><a:solidFill><a:srgbClr val="{c}"/></a:solidFill><a:ln><a:noFill/></a:ln></p:spPr></p:sp>"#,
+                id = id,
+                n = id - 1,
+                x = x,
+                y = y,
+                cx = cx,
+                cy = cy,
+                paths = paths,
+                c = color
+            ));
+        }
+    }
+
     fn textbox(&mut self, b: (f64, f64, f64, f64), paragraphs: &[String]) {
         let id = self.next_id;
         self.next_id += 1;
@@ -321,6 +362,7 @@ fn paragraph(p: &Para) -> Result<String, String> {
 fn title_slide(song: &Dict, theme: &Theme, sizes: &Sizes, perf_title: &str) -> Result<SlideXml, String> {
     let mut s = SlideXml::new();
     s.rect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT, &theme.bg_color);
+    s.music_notes(theme);
     s.rect(inches(1.5), inches(1.8), inches(10.333), inches(0.08), &theme.title_color);
     let mut paras = Vec::new();
     if !perf_title.is_empty() {
@@ -339,6 +381,7 @@ fn title_slide(song: &Dict, theme: &Theme, sizes: &Sizes, perf_title: &str) -> R
 fn verse_slide(song: &Dict, verse: &Value, index: usize, total: usize, theme: &Theme, sizes: &Sizes) -> Result<SlideXml, String> {
     let mut s = SlideXml::new();
     s.rect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT, &theme.bg_color);
+    s.music_notes(theme);
     let header = header_text(song, verse, index, total);
     let p = paragraph(&Para { text: &header, size_pt: sizes.header, bold: true, color: &theme.title_color, space_before_pt: None, line_spacing: None })?;
     s.textbox(HEADER_BOX, &[p]);
