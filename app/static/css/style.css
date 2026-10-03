@@ -927,3 +927,47 @@ main {
 [hidden] {
   display: none !important;
 }
+
+/* Video export options */
+.video-option {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  margin-top: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.video-option:has(input[type="radio"]:checked) {
+  border-color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.video-option input[type="radio"] {
+  margin-top: 0.3rem;
+  accent-color: var(--accent-cyan);
+}
+
+.video-option small {
+  display: block;
+  color: var(--text-secondary);
+  margin-top: 0.2rem;
+  line-height: 1.4;
+}
+
+.video-fps-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.video-fps-row .form-input {
+  width: 5.5rem;
+}
+
+.video-fps-row .form-input:disabled {
+  opacity: 0.45;
+}

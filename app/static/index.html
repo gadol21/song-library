@@ -412,6 +412,39 @@
     </div>
   </div>
 
+  <!-- Video export options: asked before every video export -->
+  <div class="modal-overlay" id="video-options-modal">
+    <div class="modal-content">
+      <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">🎬 אפשרויות ייצוא סרטון</h3>
+
+      <label class="video-option">
+        <input type="radio" name="video-frame-mode" value="variable">
+        <div>
+          <strong>Variable Frame Rate (קצב פריימים משתנה)</strong>
+          <small>הכי מהיר ליצירה. מתנגן רק ב-VLC.</small>
+        </div>
+      </label>
+
+      <label class="video-option">
+        <input type="radio" name="video-frame-mode" value="constant" checked>
+        <div>
+          <strong>Constant Frame Rate (קצב פריימים קבוע)</strong>
+          <small>יצירת הסרטון איטית יותר. מתנגן בכל הנגנים.</small>
+          <div class="video-fps-row">
+            <input type="number" id="video-fps" class="form-input" min="1" max="30" step="any" value="5" inputmode="decimal">
+            <span>פריימים לשנייה</span>
+          </div>
+          <small>יותר פריימים לשנייה: החלפת בתים מדויקת יותר, אבל יצירה איטית יותר (מומלץ 5).</small>
+        </div>
+      </label>
+
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem;">
+        <button type="button" class="btn btn-secondary btn-sm" id="video-options-cancel">ביטול</button>
+        <button type="button" class="btn btn-primary btn-sm" id="video-options-confirm">🎬 ייצא סרטון</button>
+      </div>
+    </div>
+  </div>
+
   <!-- AI Timing: progress & result -->
   <div class="modal-overlay" id="ai-timing-modal">
     <div class="modal-content">

@@ -232,18 +232,77 @@ async function exportSongPptx(songId) {
   }
 }
 
-async function exportSongVideo(songId) {
+// ==================== VIDEO EXPORT OPTIONS ====================
+const VIDEO_OPTIONS_KEY = "videoExportOptions";
+const VIDEO_FPS_DEFAULT = 5, VIDEO_FPS_MIN = 1, VIDEO_FPS_MAX = 30;
+
+// Ask how the video should be built. Resolves to { frame_rate } (null = variable frame rate, otherwise a
+// constant rate in frames per second), or to null if the user cancels. The last choice is remembered.
+function askVideoOptions() {
+  const modal = document.getElementById("video-options-modal");
+  const fpsInput = document.getElementById("video-fps");
+  const radios = Array.from(document.querySelectorAll('input[name="video-frame-mode"]'));
+  const selectedMode = () => radios.find(r => r.checked).value;
+
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(VIDEO_OPTIONS_KEY) || "{}"); } catch (e) { /* ignore a corrupt value */ }
+  const savedMode = saved.mode === "variable" ? "variable" : "constant";  // constant plays everywhere, so it is the default
+  radios.forEach(r => { r.checked = r.value === savedMode; });
+  fpsInput.value = saved.fps >= VIDEO_FPS_MIN && saved.fps <= VIDEO_FPS_MAX ? saved.fps : VIDEO_FPS_DEFAULT;
+  const syncFpsEnabled = () => { fpsInput.disabled = selectedMode() !== "constant"; };
+  syncFpsEnabled();
+
+  return new Promise(resolve => {
+    const finish = (value) => {
+      modal.classList.remove("active");
+      modal.onclick = null;
+      document.removeEventListener("keydown", onKey);
+      radios.forEach(r => { r.onchange = null; });
+      resolve(value);
+    };
+    const submit = () => {
+      const mode = selectedMode();
+      const fps = Number(fpsInput.value);
+      const fpsValid = fpsInput.value !== "" && fps >= VIDEO_FPS_MIN && fps <= VIDEO_FPS_MAX;
+      if (mode === "constant" && !fpsValid) {
+        showToast(`קצב הפריימים חייב להיות מספר בין ${VIDEO_FPS_MIN} ל-${VIDEO_FPS_MAX}`, "error");
+        fpsInput.focus();
+        return;
+      }
+      localStorage.setItem(VIDEO_OPTIONS_KEY, JSON.stringify({ mode, fps: fpsValid ? fps : VIDEO_FPS_DEFAULT }));
+      finish({ frame_rate: mode === "constant" ? fps : null });
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") finish(null);
+      else if (e.key === "Enter") { e.preventDefault(); submit(); }
+    };
+    radios.forEach(r => { r.onchange = syncFpsEnabled; });
+    document.addEventListener("keydown", onKey);
+    modal.onclick = (e) => { if (e.target === modal) finish(null); };  // a click on the dark backdrop cancels
+    document.getElementById("video-options-confirm").onclick = submit;
+    document.getElementById("video-options-cancel").onclick = () => finish(null);
+    modal.classList.add("active");
+    (fpsInput.disabled ? radios.find(r => r.checked) : fpsInput).focus();
+  });
+}
+
+// options: what askVideoOptions resolved to; asked for here when the caller has not already done so
+async function exportSongVideo(songId, options) {
+  if (options === undefined) options = await askVideoOptions();
+  if (!options) return;
   showToast("מרנדר סרטון קריוקי (עשוי לקחת מספר שניות)...", "info");
   try {
     const res = await fetch("/api/export/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ song_id: songId })
+      body: JSON.stringify({ song_id: songId, frame_rate: options.frame_rate })
     });
     const data = await res.json();
     if (data.download_url) {
       window.location.href = data.download_url;
       showToast("סרטון הקריוקי נוצר בהצלחה!", "success");
+    } else {
+      showToast("שגיאה ביצירת הסרטון: " + (data.detail || "שגיאה"), "error");
     }
   } catch (err) {
     showToast("שגיאה ברינדור הווידאו", "error");
@@ -446,9 +505,11 @@ function setupStudio() {
   const studioVidBtn = document.getElementById("btn-studio-export-video");
   if (studioVidBtn) {
     studioVidBtn.addEventListener("click", async () => {
+      const options = await askVideoOptions();
+      if (!options) return;
       const saved = await saveCurrentSong(false);
       if (saved && saved.id) {
-        exportSongVideo(saved.id);
+        exportSongVideo(saved.id, options);
       }
     });
   }
@@ -1428,13 +1489,15 @@ async function exportPerformancePptx() {
 }
 
 async function exportPerformanceVideo() {
+  const options = await askVideoOptions();
+  if (!options) return;
   await savePerformance();
   showToast("מרנדר סרטון וידאו מלא לכל שירי ההופעה (MP4)... עשוי לקחת מספר רגעים", "info");
   try {
     const res = await fetch("/api/export/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ performance_id: currentPerformance.id })
+      body: JSON.stringify({ performance_id: currentPerformance.id, frame_rate: options.frame_rate })
     });
     const data = await res.json();
     if (data.download_url) {

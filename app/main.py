@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, List
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
@@ -18,7 +18,7 @@ from app.database import (
     SONGS_DIR, PRESENTATIONS_DIR, VIDEOS_DIR
 )
 from app.pptx_generator import generate_presentation
-from app.video_generator import generate_karaoke_video, generate_performance_video
+from app.video_generator import generate_karaoke_video, generate_performance_video, check_frame_rate, DEFAULT_FRAME_RATE
 from app.sample_data import seed_sample_data_if_empty
 from app.theme import resolve_theme
 from app.youtube import download_audio_mp3, AudioDownloadError
@@ -237,9 +237,16 @@ def api_export_pptx(req: ExportPptxRequest):
 class ExportVideoRequest(BaseModel):
     song_id: Optional[str] = None
     performance_id: Optional[str] = None
+    # A number = constant frame rate in frames per second (plays everywhere). An explicit null = variable frame rate
+    # (fastest, but plays in VLC only). When the field is left out, a constant rate is used.
+    frame_rate: Optional[float] = None
 
 @app.post("/api/export/video")
 def api_export_video(req: ExportVideoRequest):
+    try:
+        frame_rate = check_frame_rate(req.frame_rate if "frame_rate" in req.model_fields_set else DEFAULT_FRAME_RATE)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if req.performance_id:
         perf = get_performance(req.performance_id)
         if not perf:
@@ -248,7 +255,7 @@ def api_export_video(req: ExportVideoRequest):
         if not songs:
             raise HTTPException(status_code=400, detail="Performance contains no songs")
         file_path = generate_performance_video(songs, title=perf.get("title", "הופעה"), filename_prefix=perf.get("id", "performance"),
-                                               theme=resolve_theme(perf))
+                                               theme=resolve_theme(perf), frame_rate=frame_rate)
         filename = Path(file_path).name
         return {
             "success": True,
@@ -262,7 +269,7 @@ def api_export_video(req: ExportVideoRequest):
         if not song:
             raise HTTPException(status_code=404, detail="Song not found")
 
-        file_path = generate_karaoke_video(song, filename_prefix=song.get("id", "karaoke"))
+        file_path = generate_karaoke_video(song, filename_prefix=song.get("id", "karaoke"), frame_rate=frame_rate)
         filename = Path(file_path).name
 
         return {
@@ -292,8 +299,24 @@ def api_download_file(folder: str, filename: str):
 
 # ----------------- STATIC UI -----------------
 
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files that the browser re-checks on every load (cheap: it gets "not modified" when nothing changed).
+
+    Without this, browsers keep using their stored copy of the page's script and styles for hours, so an
+    update to the app would not show up until the user hard-refreshes.
+    """
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+app.mount("/static", RevalidatedStaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    # Put each asset's last-modified time in its address, so a changed file is always fetched fresh
+    for asset in ("css/style.css", "js/app.js"):
+        version = int((STATIC_DIR / asset).stat().st_mtime)
+        html = html.replace(f"/static/{asset}", f"/static/{asset}?v={version}")
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
