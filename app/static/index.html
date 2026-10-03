@@ -4,35 +4,79 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sing-Along Studio | אולפן שירה בציבור וקריוקי</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-  <!-- Google Fonts for Hebrew and Clean Presentation -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
 
+  <!-- Icon sprite (Lucide-style line icons). Use: <svg class="icon"><use href="#i-name"/></svg> -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+    <defs>
+      <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+      <symbol id="i-library" viewBox="0 0 24 24"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></symbol>
+      <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L7.5 3.64A1 1 0 0 0 6 4.5Z"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18 20 8 12l10-8v16Z"/><path d="M5 19V5"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="m6 4 10 8-10 8V4Z"/><path d="M19 5v14"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+      <symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+      <symbol id="i-slides" viewBox="0 0 24 24"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-timer" viewBox="0 0 24 24"><path d="M10 2h4"/><path d="m12 14 3-3"/><circle cx="12" cy="14" r="8"/></symbol>
+      <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
+      <symbol id="i-screen" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+      <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6a1.4 1.4 0 0 1-1 .4H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></symbol>
+      <symbol id="i-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></symbol>
+      <symbol id="i-youtube" viewBox="0 0 24 24"><path d="M2.5 17a24.1 24.1 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.6 49.6 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.1 24.1 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.6 49.6 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+      <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z"/></symbol>
+    </defs>
+  </svg>
+
   <!-- Navigation Header -->
-  <header>
+  <header class="app-header">
     <div class="header-container">
       <a href="#" class="logo">
-        <span>🎤</span>
-        <span>Sing-Along Studio</span>
-        <span class="logo-badge">שירה בציבור</span>
+        <span class="logo-mark"><svg class="icon"><use href="#i-mic"/></svg></span>
+        <span class="logo-text">
+          <span class="logo-name">Sing-Along Studio</span>
+          <span class="logo-sub">שירה בציבור וקריוקי</span>
+        </span>
       </a>
 
-      <nav>
+      <nav class="nav-tabs" aria-label="ניווט ראשי">
         <button class="nav-btn active" data-tab="library">
-          <span>📚</span>
-          <span>ספריית שירים</span>
+          <svg class="icon"><use href="#i-library"/></svg>
+          <span>ספרייה</span>
         </button>
         <button class="nav-btn" data-tab="studio">
-          <span>🎙️</span>
+          <svg class="icon"><use href="#i-wave"/></svg>
           <span>אולפן תזמון</span>
         </button>
         <button class="nav-btn" data-tab="setlist">
-          <span>📋</span>
-          <span>בניית הופעה</span>
+          <svg class="icon"><use href="#i-list"/></svg>
+          <span>הופעה</span>
         </button>
       </nav>
     </div>
@@ -43,28 +87,31 @@
 
     <!-- TAB 1: SONG LIBRARY -->
     <section id="tab-library" class="tab-pane active">
-      <div class="section-header">
+      <div class="page-header">
         <div>
-          <h1 class="section-title"><span>📚</span> ספריית השירים שלי</h1>
-          <p class="section-subtitle">מאגר השירים המתוזמנים שלך. כל שיר נשמר עם קובץ שמע, מילים ותזמונים מדויקים.</p>
+          <h1 class="page-title">ספריית השירים</h1>
+          <p class="page-subtitle">כל שיר נשמר עם קובץ שמע, מילים ותזמון לכל בית.</p>
         </div>
-        <button class="btn btn-gold" id="btn-add-new-song">
-          <span>➕</span>
-          <span>הוסף שיר חדש</span>
-        </button>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="btn-add-new-song">
+            <svg class="icon"><use href="#i-plus"/></svg>
+            <span>שיר חדש</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Filters -->
-      <div class="filter-bar">
-        <input type="text" id="library-search" class="search-input" placeholder="🔍 חיפוש לפי שם שיר או אמן...">
-        <select id="library-lang-filter" class="form-select" style="max-width: 180px;">
-          <option value="all">כל השפות (All)</option>
-          <option value="he">🇮🇱 עברית בלבד</option>
-          <option value="en">🇬🇧 English Only</option>
+      <div class="toolbar">
+        <label class="search-field">
+          <svg class="icon"><use href="#i-search"/></svg>
+          <input type="search" id="library-search" class="search-input" placeholder="חיפוש לפי שם שיר או אמן">
+        </label>
+        <select id="library-lang-filter" class="form-select form-select-compact" aria-label="סינון לפי שפה">
+          <option value="all">כל השפות</option>
+          <option value="he">עברית</option>
+          <option value="en">English</option>
         </select>
       </div>
 
-      <!-- Songs Grid -->
       <div id="songs-container" class="cards-grid">
         <!-- Rendered dynamically -->
       </div>
@@ -72,86 +119,106 @@
 
     <!-- TAB 2: TAP-TO-SYNC STUDIO -->
     <section id="tab-studio" class="tab-pane">
-      <div class="section-header">
+      <div class="page-header">
         <div>
-          <h1 class="section-title"><span>🎙️</span> אולפן תזמון בתים (Tap-to-Sync)</h1>
-          <p class="section-subtitle">הוסף קובץ MP3 והדבק מילים. נגן את השיר והקש [רווח] כדי לתזמן כל בית בקלות!</p>
+          <h1 class="page-title">אולפן תזמון</h1>
+          <p class="page-subtitle">טען שמע, הדבק מילים, נגן את השיר והקש <kbd>רווח</kbd> בתחילת כל בית.</p>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
-          <button class="btn btn-secondary" id="btn-studio-reset">איפוס טופס</button>
-          <button class="btn btn-gold" id="btn-studio-export-video" title="שמור וייצא כסרטון וידאו MP4">
-            <span>🎬</span>
-            <span>ייצוא סרטון וידאו (MP4)</span>
+        <div class="page-actions">
+          <button class="btn btn-ghost" id="btn-studio-reset">
+            <svg class="icon"><use href="#i-restart"/></svg>
+            <span>איפוס</span>
+          </button>
+          <button class="btn btn-secondary" id="btn-studio-export-video" title="שמור וייצא כסרטון וידאו MP4">
+            <svg class="icon"><use href="#i-video"/></svg>
+            <span>ייצוא וידאו</span>
           </button>
           <button class="btn btn-primary" id="btn-save-song">
-            <span>💾</span>
+            <svg class="icon"><use href="#i-save"/></svg>
             <span>שמור בספרייה</span>
           </button>
         </div>
       </div>
 
       <div class="studio-layout">
-        <!-- Left Panel: Song Info & Lyrics Input -->
+        <!-- Song details & lyrics -->
         <div class="panel">
-          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent-cyan);">1. פרטי השיר והמילים</h2>
-          
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="panel-header">
+            <div class="panel-heading">
+              <span class="step">1</span>
+              <h2 class="panel-title">פרטי השיר</h2>
+            </div>
+          </div>
+
+          <div class="form-grid">
             <div class="form-group">
-              <label class="form-label">שם השיר (Title)</label>
+              <label class="form-label" for="song-title">שם השיר</label>
               <input type="text" id="song-title" class="form-input" placeholder="למשל: עוד לא תמו כל פלאייך">
             </div>
             <div class="form-group">
-              <label class="form-label">שם האמן / מבצע (Artist)</label>
+              <label class="form-label" for="song-artist">אמן / מבצע</label>
               <input type="text" id="song-artist" class="form-input" placeholder="למשל: רמי קלינשטיין">
             </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
-              <label class="form-label">שפה וכיוון כתיבה</label>
+              <label class="form-label" for="song-language">שפה</label>
               <select id="song-language" class="form-select">
-                <option value="he">🇮🇱 עברית (מימין לשמאל - RTL)</option>
-                <option value="en">🇬🇧 English (Left-to-Right)</option>
+                <option value="he">עברית (מימין לשמאל)</option>
+                <option value="en">English (left to right)</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">קובץ שמע (MP3 / Audio)</label>
-              <input type="file" id="song-audio-file" class="form-input" accept="audio/*">
+              <span class="form-label">קובץ שמע</span>
+              <label class="file-picker">
+                <input type="file" id="song-audio-file" accept="audio/*">
+                <svg class="icon"><use href="#i-upload"/></svg>
+                <span class="file-picker-name" id="song-audio-file-name">בחר קובץ MP3…</span>
+              </label>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">או קישור ליוטיוב (יורד וממיר ל-MP3 אוטומטית)</label>
-            <div class="audio-url-row">
-              <input type="url" id="song-audio-url" class="form-input" dir="ltr" placeholder="https://www.youtube.com/watch?v=...">
-              <button type="button" class="btn btn-secondary" id="btn-download-audio-url">⬇️ הורד והמר ל-MP3</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-              <label class="form-label" style="margin-bottom: 0;">מילות השיר (הדבק כאן)</label>
-              <!-- AI lyrics search (needs both title and artist) -->
-              <div class="ai-lyrics-wrap">
-                <small id="ai-lyrics-hint">יש למלא שם שיר ושם אמן</small>
-                <button type="button" class="btn btn-sm btn-ai" id="btn-ai-lyrics" disabled title="חיפוש מילים באמצעות בינה מלאכותית">
-                  <span>🪄</span>
-                  <span>מצא מילים</span>
-                  <span class="ai-badge">AI</span>
-                </button>
+            <label class="form-label" for="song-audio-url">או ייבוא מיוטיוב <span class="form-hint">ההורדה מומרת ל-MP3 אוטומטית</span></label>
+            <div class="input-group">
+              <div class="input-with-icon">
+                <svg class="icon"><use href="#i-youtube"/></svg>
+                <input type="url" id="song-audio-url" class="form-input" dir="ltr" placeholder="https://www.youtube.com/watch?v=...">
               </div>
+              <button type="button" class="btn btn-secondary" id="btn-download-audio-url">
+                <svg class="icon"><use href="#i-download"/></svg>
+                <span>ייבוא</span>
+              </button>
             </div>
-            <textarea id="song-raw-lyrics" class="form-textarea" placeholder="הדבק כאן את מילות השיר...
-לדוגמה:
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="panel-header">
+            <div class="panel-heading">
+              <span class="step">2</span>
+              <h2 class="panel-title">מילים</h2>
+            </div>
+            <!-- AI lyrics search (needs both title and artist) -->
+            <div class="ai-lyrics-wrap">
+              <small id="ai-lyrics-hint">יש למלא שם שיר ואמן</small>
+              <button type="button" class="btn btn-sm btn-ai" id="btn-ai-lyrics" disabled title="חיפוש מילים באמצעות בינה מלאכותית">
+                <svg class="icon"><use href="#i-sparkles"/></svg>
+                <span>מצא מילים</span>
+                <span class="ai-badge">AI</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group form-group-last">
+            <textarea id="song-raw-lyrics" class="form-textarea" dir="auto" aria-label="מילות השיר" placeholder="הדבק כאן את מילות השיר. שורה ריקה מפרידה בין בתים.
 
 ארצנו הקטנטונת, ארצנו היפה
 מולדת בלי כותונת, מולדת יחפה
 
 קבליני אל שירייך, כלה יפהפיה
 פתחי לי שערייך, אבוא בם אודה יה"></textarea>
-            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.3rem;">
-              <span id="verse-count-badge">זוהו 0 בתים</span>
-              <span>שורה ריקה = בית חדש. עריכה לא מוחקת תזמונים של בתים שלא השתנו</span>
+            <div class="field-footer">
+              <span class="chip" id="verse-count-badge">זוהו 0 בתים</span>
+              <span>שורה ריקה = בית חדש. עריכה שומרת את התזמון של בתים שלא השתנו.</span>
             </div>
           </div>
 
@@ -159,189 +226,199 @@
           <audio id="studio-audio" preload="auto"></audio>
         </div>
 
-        <!-- Right Panel: Tap-to-Sync & Real-time Live Preview -->
-        <div class="panel" style="display: flex; flex-direction: column;">
-          <div class="panel-header-row">
-            <h2 style="font-size: 1.15rem; margin-bottom: 0; color: var(--accent-gold);">2. תזמון בלייב ותצוגה מקדימה</h2>
+        <!-- Timing & live preview -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-heading">
+              <span class="step">3</span>
+              <h2 class="panel-title">תזמון ותצוגה מקדימה</h2>
+            </div>
 
             <!-- AI automatic timing -->
             <div class="ai-menu-wrap">
               <button type="button" class="btn btn-sm btn-ai" id="btn-ai-timing" aria-haspopup="true" aria-expanded="false" title="תזמון אוטומטי באמצעות בינה מלאכותית">
-                <span>🪄</span>
+                <svg class="icon"><use href="#i-sparkles"/></svg>
                 <span>תזמון אוטומטי</span>
                 <span class="ai-badge">AI</span>
               </button>
-              <div class="ai-menu" id="ai-timing-menu" role="menu" hidden>
-                <button type="button" class="ai-menu-item" id="ai-opt-youtube" role="menuitem">
-                  <span>▶️ תזמן לפי סרטון יוטיוב</span>
-                  <small id="ai-opt-youtube-hint"></small>
+              <div class="menu" id="ai-timing-menu" role="menu" hidden>
+                <button type="button" class="menu-item" id="ai-opt-youtube" role="menuitem">
+                  <svg class="icon"><use href="#i-youtube"/></svg>
+                  <span class="menu-item-text">
+                    <span>תזמן לפי סרטון יוטיוב</span>
+                    <small id="ai-opt-youtube-hint"></small>
+                  </span>
                 </button>
-                <button type="button" class="ai-menu-item" id="ai-opt-singer" role="menuitem">
-                  <span>🎤 תזמן לפי גרסה עם זמר</span>
-                  <small id="ai-opt-singer-hint"></small>
+                <button type="button" class="menu-item" id="ai-opt-singer" role="menuitem">
+                  <svg class="icon"><use href="#i-mic"/></svg>
+                  <span class="menu-item-text">
+                    <span>תזמן לפי גרסה עם זמר</span>
+                    <small id="ai-opt-singer-hint"></small>
+                  </span>
                 </button>
               </div>
             </div>
           </div>
 
-          <!-- Controller -->
-          <div class="sync-controller">
-            <div class="time-display" id="audio-time-display">00:00.0 / 00:00.0</div>
-            <input type="range" id="audio-scrubber" class="audio-scrubber" min="0" max="100" value="0" step="0.1">
-
-            <div style="display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 1rem;">
-              <button class="btn btn-secondary" id="btn-play-pause">
-                <span id="play-icon">▶️</span>
-                <span id="play-text">נגן מוזיקה</span>
+          <!-- Transport -->
+          <div class="transport">
+            <div class="transport-row">
+              <button class="icon-btn icon-btn-lg icon-btn-dark" id="btn-play-pause" title="נגן / השהה">
+                <svg class="icon" id="play-icon"><use href="#i-play"/></svg>
+                <span class="sr-only" id="play-text">נגן</span>
               </button>
-              <button class="btn btn-secondary" id="btn-stop">
-                <span>⏹️</span>
-                <span>התחל מהתחלה</span>
+              <button class="icon-btn" id="btn-stop" title="חזרה להתחלה">
+                <svg class="icon"><use href="#i-restart"/></svg>
               </button>
-              <button class="btn btn-secondary" id="btn-toggle-preview">
-                <span>👁️</span>
-                <span id="preview-mode-text">מצב תצוגה מקדימה</span>
-              </button>
+              <input type="range" id="audio-scrubber" class="range" min="0" max="100" value="0" step="0.1" aria-label="מיקום בשיר">
+              <div class="time-display" id="audio-time-display">00:00.0 / 00:00.0</div>
             </div>
 
-            <!-- Big Spacebar Tap Button -->
             <button class="tap-button" id="btn-tap-sync">
-              <span>⚡</span>
-              <span>הקש [רווח] - סמן תחילת בית!</span>
+              <svg class="icon"><use href="#i-zap"/></svg>
+              <span>סמן תחילת בית</span>
+              <kbd>רווח</kbd>
             </button>
           </div>
 
           <!-- Live Stage Mini-Preview -->
-          <div style="margin-bottom: 1rem;">
-            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.4rem;">תצוגה מקדימה חיה (כך זה ייראה על המסך בהופעה):</div>
-            <div class="stage-preview" id="stage-preview-box">
-              <div class="stage-preview-title" id="stage-preview-title">שם השיר יופיע כאן</div>
-              <div class="stage-preview-lyrics" id="stage-preview-text">המילים יופיעו כאן בזמן אמת...</div>
-              <div class="stage-preview-next" id="stage-preview-next"></div>
-            </div>
+          <div class="section-label">תצוגה מקדימה</div>
+          <div class="stage-preview" id="stage-preview-box">
+            <div class="stage-preview-title" id="stage-preview-title">שם השיר יופיע כאן</div>
+            <div class="stage-preview-lyrics" id="stage-preview-text">המילים יופיעו כאן בזמן אמת...</div>
+            <div class="stage-preview-next" id="stage-preview-next"></div>
           </div>
 
-          <!-- Interactive Verses Timing Table -->
-          <div style="flex: 1; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-              <span style="font-size: 0.9rem; font-weight: 600;">רשימת הבתים והתזמונים:</span>
-              <button class="btn btn-secondary btn-sm" id="btn-clear-timings">נקה תזמונים</button>
-            </div>
-            <div id="verses-list" class="verses-list">
-              <!-- Dynamically populated -->
-              <div style="color: var(--text-muted); text-align: center; padding: 2rem;">
-                הדבק מילים משמאל ולחץ "פצל לפי בתים" כדי להתחיל בתזמון.
-              </div>
-            </div>
+          <!-- Verses & timings -->
+          <div class="list-header">
+            <span class="section-label">בתים ותזמונים</span>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-timings">
+              <svg class="icon"><use href="#i-eraser"/></svg>
+              <span>נקה תזמונים</span>
+            </button>
           </div>
-
+          <div id="verses-list" class="list">
+            <!-- Dynamically populated -->
+          </div>
         </div>
       </div>
     </section>
 
     <!-- TAB 3: SETLIST BUILDER -->
     <section id="tab-setlist" class="tab-pane">
-      <div class="section-header">
+      <div class="page-header">
         <div>
-          <h1 class="section-title"><span>📋</span> בניית הופעה וייצוא מצגת / וידאו</h1>
-          <p class="section-subtitle">בחר שירים מהספרייה, סדר אותם לפי רצף ההופעה, ובלחיצת כפתור אחת צור מצגת או סרטון קריוקי.</p>
+          <h1 class="page-title">בניית הופעה</h1>
+          <p class="page-subtitle">בחר שירים מהספרייה, סדר אותם, וייצא מצגת או סרטון קריוקי להופעה כולה.</p>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
-          <button class="btn btn-secondary" id="btn-new-performance">הופעה חדשה</button>
+        <div class="page-actions">
           <button class="btn btn-primary" id="btn-save-performance">
-            <span>💾</span>
-            <span>שמור רשימת שירים</span>
+            <svg class="icon"><use href="#i-save"/></svg>
+            <span>שמור הופעה</span>
           </button>
         </div>
       </div>
 
-      <!-- Performance Selector Bar -->
-      <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; background: var(--bg-secondary); padding: 0.85rem 1.25rem; border-radius: 10px; border: 1px solid var(--border-color);">
-        <label style="font-weight: 700; white-space: nowrap; color: var(--accent-cyan);">📁 הופעה נבחרת:</label>
-        <select id="perf-selector" class="form-select" style="flex: 1;"></select>
-        <button class="btn btn-gold btn-sm" id="btn-new-performance">➕ הופעה חדשה</button>
-        <button class="btn btn-danger btn-sm" id="btn-delete-performance" title="מחק הופעה זו">🗑️ מחק</button>
+      <!-- Performance selector -->
+      <div class="toolbar">
+        <label class="toolbar-label" for="perf-selector">הופעה</label>
+        <select id="perf-selector" class="form-select"></select>
+        <button class="btn btn-secondary" id="btn-new-performance">
+          <svg class="icon"><use href="#i-plus"/></svg>
+          <span>הופעה חדשה</span>
+        </button>
+        <button class="icon-btn icon-btn-danger" id="btn-delete-performance" title="מחק הופעה זו">
+          <svg class="icon"><use href="#i-trash"/></svg>
+        </button>
       </div>
 
-      <div class="studio-layout">
-        <!-- Setlist Configuration & Order -->
+      <div class="setlist-layout">
+        <!-- Setlist configuration & order -->
         <div class="panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h2 style="font-size: 1.15rem; color: var(--accent-gold); margin-bottom: 0;">רשימת השירים להופעה</h2>
-            <button class="btn btn-secondary btn-sm" id="btn-clear-setlist-queue" title="נקה את כל השירים מהרשימה">
-              <span>🧹 נקה רשימה</span>
-            </button>
-          </div>
-          
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">שם ההופעה / אירוע</label>
-              <input type="text" id="perf-title" class="form-input" placeholder="למשל: ערב שירי ארץ ישראל - יום העצמאות">
+          <div class="form-grid form-grid-wide">
+            <div class="form-group">
+              <label class="form-label" for="perf-title">שם ההופעה / האירוע</label>
+              <input type="text" id="perf-title" class="form-input" placeholder="למשל: ערב שירי ארץ ישראל">
             </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">תאריך</label>
+            <div class="form-group">
+              <label class="form-label" for="perf-date">תאריך</label>
               <input type="date" id="perf-date" class="form-input">
             </div>
           </div>
 
-          <!-- Show Colors (used by the PowerPoint, the video and the live stage) -->
-          <div class="color-picker-row">
-            <label class="color-picker">
-              <input type="color" id="perf-bg-color" value="#0b1120">
-              <span>צבע רקע</span>
-            </label>
-            <label class="color-picker">
-              <input type="color" id="perf-text-color" value="#ffffff">
-              <span>צבע מילים</span>
-            </label>
-            <label class="color-picker">
-              <input type="color" id="perf-title-color" value="#38bdf8">
-              <span>צבע כותרת</span>
-            </label>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-perf-colors" title="החזר לצבעי ברירת המחדל">↺ ברירת מחדל</button>
+          <!-- Show colors (used by the PowerPoint, the video and the live stage) -->
+          <div class="form-group">
+            <span class="form-label">צבעי ההופעה</span>
+            <div class="color-picker-row">
+              <label class="color-picker">
+                <input type="color" id="perf-bg-color" value="#0b1120">
+                <span>רקע</span>
+              </label>
+              <label class="color-picker">
+                <input type="color" id="perf-text-color" value="#ffffff">
+                <span>מילים</span>
+              </label>
+              <label class="color-picker">
+                <input type="color" id="perf-title-color" value="#38bdf8">
+                <span>כותרת</span>
+              </label>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-reset-perf-colors" title="החזר לצבעי ברירת המחדל">
+                <svg class="icon"><use href="#i-restart"/></svg>
+                <span>ברירת מחדל</span>
+              </button>
+            </div>
           </div>
 
-          <!-- Stats Bar -->
-          <div style="background: var(--bg-primary); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-around; margin-bottom: 1.25rem;">
-            <div>סה"כ שירים: <strong id="perf-count" style="color: var(--accent-cyan);">0</strong></div>
-            <div>זמן משוער: <strong id="perf-duration" style="color: var(--accent-gold);">0 דק'</strong></div>
+          <div class="divider"></div>
+
+          <div class="list-header">
+            <div class="stats">
+              <span class="stat"><strong id="perf-count">0</strong> שירים</span>
+              <span class="stat-sep"></span>
+              <span class="stat"><svg class="icon"><use href="#i-clock"/></svg> <strong id="perf-duration">0 דק'</strong></span>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-setlist-queue" title="נקה את כל השירים מהרשימה">
+              <svg class="icon"><use href="#i-eraser"/></svg>
+              <span>נקה רשימה</span>
+            </button>
           </div>
 
-          <!-- Performance Songs Queue -->
-          <div id="perf-songs-list" class="verses-list" style="min-height: 250px;">
+          <div id="perf-songs-list" class="list list-queue">
             <!-- Populated dynamically -->
-            <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
-              לא נבחרו שירים עדיין. הוסף שירים מהמאגר בצד שמאל ⬅️
-            </div>
           </div>
 
-          <!-- Export Actions -->
-          <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.75rem;">
-            <h3 style="font-size: 1rem; margin-bottom: 0.25rem;">ייצוא והפעלה:</h3>
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-              <button class="btn btn-gold" id="btn-export-perf-pptx" style="flex: 1;">
-                <span>📊</span>
-                <span>הורד מצגת PowerPoint (.pptx)</span>
-              </button>
-              <button class="btn btn-primary" id="btn-export-perf-video" style="flex: 1; background: linear-gradient(135deg, #0284c7, #6366f1); color: white;">
-                <span>🎬</span>
-                <span>ייצוא סרטון וידאו של ההופעה (.mp4)</span>
-              </button>
-              <button class="btn btn-secondary" id="btn-launch-fullscreen" style="flex: 1; border: 1px solid var(--accent-cyan); color: var(--accent-cyan);">
-                <span>🎤</span>
-                <span>הפעל מצב במה חי (מסך מלא + מוזיקה)</span>
-              </button>
-            </div>
+          <div class="divider"></div>
+
+          <div class="section-label">ייצוא והפעלה</div>
+          <div class="export-grid">
+            <button class="export-tile" id="btn-export-perf-pptx">
+              <span class="export-tile-icon"><svg class="icon"><use href="#i-slides"/></svg></span>
+              <span class="export-tile-title">מצגת PowerPoint</span>
+              <span class="export-tile-desc">קובץ ‎.pptx עם שמע</span>
+            </button>
+            <button class="export-tile" id="btn-export-perf-video">
+              <span class="export-tile-icon"><svg class="icon"><use href="#i-video"/></svg></span>
+              <span class="export-tile-title">סרטון קריוקי</span>
+              <span class="export-tile-desc">קובץ ‎.mp4 של כל ההופעה</span>
+            </button>
+            <button class="export-tile export-tile-primary" id="btn-launch-fullscreen">
+              <span class="export-tile-icon"><svg class="icon"><use href="#i-screen"/></svg></span>
+              <span class="export-tile-title">מצב במה חי</span>
+              <span class="export-tile-desc">מסך מלא עם מוזיקה</span>
+            </button>
           </div>
         </div>
 
-        <!-- Available Songs from Library -->
+        <!-- Available songs from the library -->
         <div class="panel">
-          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; color: var(--accent-cyan);">בחר שירים מהספרייה</h2>
-          <div class="form-group">
-            <input type="text" id="setlist-search" class="search-input" placeholder="🔍 סנן שירים להוספה...">
+          <div class="panel-header">
+            <h2 class="panel-title">הוספה מהספרייה</h2>
           </div>
-          <div id="setlist-available-songs" class="verses-list" style="max-height: 520px;">
+          <label class="search-field search-field-block">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input type="search" id="setlist-search" class="search-input" placeholder="סינון שירים">
+          </label>
+          <div id="setlist-available-songs" class="list list-scroll">
             <!-- Rendered dynamically -->
           </div>
         </div>
@@ -352,45 +429,49 @@
 
   <!-- Fullscreen Live Stage Presentation & Music Player -->
   <div id="fullscreen-stage">
-    <button class="fs-close-btn" id="fs-close-btn">יציאה (ESC) ✕</button>
+    <button class="fs-close-btn" id="fs-close-btn">
+      <svg class="icon"><use href="#i-x"/></svg>
+      <span>יציאה</span>
+      <kbd>Esc</kbd>
+    </button>
     <div class="fs-header">
       <span id="fs-song-title">שם השיר</span>
-      <span id="fs-verse-index" style="opacity: 0.75;">(1/3)</span>
+      <span id="fs-verse-index" class="fs-verse-index">(1/3)</span>
     </div>
     <div class="fs-lyrics" id="fs-lyrics-text">
       מילות השיר יופיעו כאן בגופן ענק וברור
     </div>
     <div class="fs-footer">
-      <span>הקש [רווח] כדי לנגן/להשהות | [חצים] למעבר שיר/בית</span>
-      <span id="fs-next-preview" style="color: var(--text-muted); font-size: 0.95rem;"></span>
+      <span><kbd>רווח</kbd> נגן / השהה · <kbd>→</kbd> <kbd>←</kbd> בית · <kbd>↑</kbd> <kbd>↓</kbd> שיר</span>
+      <span id="fs-next-preview" class="fs-next"></span>
     </div>
 
     <!-- Hidden audio element driving the live stage show -->
     <audio id="fs-audio" preload="auto"></audio>
 
-    <!-- Floating Live Stage Control Dock -->
+    <!-- Floating live stage control dock -->
     <div class="fs-player-dock" id="fs-player-dock">
       <div class="fs-track-info">
-        <div id="fs-dock-title" style="font-weight: 700; color: #fff;"></div>
-        <div id="fs-dock-artist" style="font-size: 0.85rem; color: var(--accent-gold);"></div>
+        <div id="fs-dock-title" class="fs-dock-title"></div>
+        <div id="fs-dock-artist" class="fs-dock-artist"></div>
       </div>
-      
+
       <div class="fs-player-controls">
-        <button class="fs-icon-btn" id="fs-prev-song" title="שיר קודם">⏮️</button>
-        <button class="fs-icon-btn fs-play-main" id="fs-play-btn" title="נגן / השהה מוזיקה">▶️</button>
-        <button class="fs-icon-btn" id="fs-next-song" title="שיר הבא">⏭️</button>
-        <button class="fs-icon-btn" id="fs-restart-song" title="התחל שיר מחדש">🔄</button>
+        <button class="fs-icon-btn" id="fs-prev-song" title="שיר קודם"><svg class="icon"><use href="#i-prev"/></svg></button>
+        <button class="fs-icon-btn fs-play-main" id="fs-play-btn" title="נגן / השהה מוזיקה"><svg class="icon"><use href="#i-play"/></svg></button>
+        <button class="fs-icon-btn" id="fs-next-song" title="שיר הבא"><svg class="icon"><use href="#i-next"/></svg></button>
+        <button class="fs-icon-btn" id="fs-restart-song" title="התחל שיר מחדש"><svg class="icon"><use href="#i-restart"/></svg></button>
       </div>
 
       <div class="fs-timeline-container">
-        <span id="fs-cur-time" style="font-family: monospace; font-size: 0.9rem; color: var(--accent-cyan);">00:00</span>
-        <input type="range" id="fs-timeline-scrubber" min="0" max="100" value="0" step="0.1">
-        <span id="fs-dur-time" style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">00:00</span>
+        <span id="fs-cur-time" class="fs-time">00:00</span>
+        <input type="range" id="fs-timeline-scrubber" class="range range-dark" min="0" max="100" value="0" step="0.1" aria-label="מיקום בשיר">
+        <span id="fs-dur-time" class="fs-time">00:00</span>
       </div>
 
       <div class="fs-toggles">
-        <button class="btn btn-sm btn-secondary" id="fs-toggle-autosync" title="סנכרון שקופיות אוטומטי לפי המוזיקה">
-          <span id="fs-autosync-dot">🟢</span>
+        <button class="fs-pill-btn" id="fs-toggle-autosync" title="סנכרון שקופיות אוטומטי לפי המוזיקה">
+          <span id="fs-autosync-dot" class="status-dot on"></span>
           <span id="fs-autosync-label">סנכרון מוזיקה: פועל</span>
         </button>
       </div>
@@ -400,23 +481,31 @@
   <!-- Quick Play & Lyric Preview Modal -->
   <div class="modal-overlay" id="preview-modal">
     <div class="modal-content">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+      <div class="modal-header">
         <div>
-          <h3 id="modal-song-title" style="font-size: 1.3rem; font-weight: 700;"></h3>
-          <div id="modal-song-artist" style="color: var(--accent-gold); font-size: 0.95rem;"></div>
+          <h3 class="modal-title" id="modal-song-title"></h3>
+          <div class="modal-subtitle" id="modal-song-artist"></div>
         </div>
-        <button class="btn btn-secondary btn-sm" id="modal-close-btn">✕ סגור</button>
+        <button class="icon-btn icon-btn-ghost" id="modal-close-btn" title="סגור">
+          <svg class="icon"><use href="#i-x"/></svg>
+        </button>
       </div>
 
-      <div class="stage-preview" style="height: 200px; margin-bottom: 1rem;">
+      <div class="stage-preview stage-preview-sm">
         <div class="stage-preview-lyrics" id="modal-preview-lyrics"></div>
       </div>
 
-      <audio id="modal-audio" controls style="width: 100%; margin-bottom: 1rem;"></audio>
+      <audio id="modal-audio" controls class="modal-audio"></audio>
 
-      <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-        <button class="btn btn-secondary btn-sm" id="modal-export-pptx">📊 הורד PowerPoint</button>
-        <button class="btn btn-primary btn-sm" id="modal-export-video">🎬 צור וידאו MP4</button>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="modal-export-pptx">
+          <svg class="icon"><use href="#i-slides"/></svg>
+          <span>מצגת PowerPoint</span>
+        </button>
+        <button class="btn btn-primary" id="modal-export-video">
+          <svg class="icon"><use href="#i-video"/></svg>
+          <span>סרטון MP4</span>
+        </button>
       </div>
     </div>
   </div>
@@ -424,66 +513,86 @@
   <!-- Video export options: asked before every video export -->
   <div class="modal-overlay" id="video-options-modal">
     <div class="modal-content">
-      <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">🎬 אפשרויות ייצוא סרטון</h3>
-
-      <label class="video-option">
-        <input type="radio" name="video-frame-mode" value="variable">
+      <div class="modal-header">
         <div>
-          <strong>Variable Frame Rate (קצב פריימים משתנה)</strong>
-          <small>הכי מהיר ליצירה. מתנגן רק ב-VLC.</small>
+          <h3 class="modal-title">ייצוא סרטון</h3>
+          <div class="modal-subtitle">בחר איך לבנות את קובץ הווידאו</div>
         </div>
-      </label>
+      </div>
 
-      <label class="video-option">
+      <label class="option-card">
         <input type="radio" name="video-frame-mode" value="constant" checked>
         <div>
-          <strong>Constant Frame Rate (קצב פריימים קבוע)</strong>
-          <small>יצירת הסרטון איטית יותר. מתנגן בכל הנגנים.</small>
+          <strong>קצב פריימים קבוע <span class="tag">מומלץ</span></strong>
+          <small>מתנגן בכל הנגנים. היצירה איטית יותר.</small>
           <div class="video-fps-row">
             <input type="number" id="video-fps" class="form-input" min="1" max="30" step="any" value="5" inputmode="decimal">
             <span>פריימים לשנייה</span>
           </div>
-          <small>יותר פריימים לשנייה: החלפת בתים מדויקת יותר, אבל יצירה איטית יותר (מומלץ 5).</small>
+          <small>יותר פריימים: החלפת בתים מדויקת יותר, אבל יצירה איטית יותר (מומלץ 5).</small>
         </div>
       </label>
 
-      <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem;">
-        <button type="button" class="btn btn-secondary btn-sm" id="video-options-cancel">ביטול</button>
-        <button type="button" class="btn btn-primary btn-sm" id="video-options-confirm">🎬 ייצא סרטון</button>
+      <label class="option-card">
+        <input type="radio" name="video-frame-mode" value="variable">
+        <div>
+          <strong>קצב פריימים משתנה</strong>
+          <small>הכי מהיר ליצירה. מתנגן רק ב-VLC.</small>
+        </div>
+      </label>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="video-options-cancel">ביטול</button>
+        <button type="button" class="btn btn-primary" id="video-options-confirm">
+          <svg class="icon"><use href="#i-video"/></svg>
+          <span>ייצא סרטון</span>
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- AI Timing: progress & result -->
+  <!-- AI dialog: progress & result -->
   <div class="modal-overlay" id="ai-timing-modal">
     <div class="modal-content">
-      <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">🪄 <span id="ai-modal-title">תזמון אוטומטי</span> <span class="ai-badge">AI</span></h3>
+      <div class="modal-header">
+        <h3 class="modal-title modal-title-ai">
+          <svg class="icon"><use href="#i-sparkles"/></svg>
+          <span id="ai-modal-title">תזמון אוטומטי</span>
+          <span class="ai-badge">AI</span>
+        </h3>
+      </div>
 
       <!-- Singer-version option: ask for the link -->
       <div id="ai-modal-input" hidden>
-        <p style="line-height: 1.6;">
+        <p class="modal-text">
           קובץ השמע של השיר נחשב לגרסת <strong>הקריוקי</strong>. הדבק קישור ליוטיוב של גרסה <strong>עם זמר</strong>:
           Gemini ישמע את שתי הגרסאות וישתמש בגרסת הזמר כדי לתזמן את הבתים בגרסת הקריוקי.
         </p>
-        <input type="url" id="ai-singer-url" class="form-input" dir="ltr" style="margin-top: 0.75rem;" placeholder="https://www.youtube.com/watch?v=...">
-        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
-          <button type="button" class="btn btn-secondary btn-sm" id="ai-singer-cancel">ביטול</button>
-          <button type="button" class="btn btn-sm btn-ai" id="ai-singer-start"><span>🪄</span><span>התחל תזמון</span></button>
+        <div class="input-with-icon">
+          <svg class="icon"><use href="#i-youtube"/></svg>
+          <input type="url" id="ai-singer-url" class="form-input" dir="ltr" placeholder="https://www.youtube.com/watch?v=...">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="ai-singer-cancel">ביטול</button>
+          <button type="button" class="btn btn-ai" id="ai-singer-start">
+            <svg class="icon"><use href="#i-sparkles"/></svg>
+            <span>התחל תזמון</span>
+          </button>
         </div>
       </div>
 
       <div id="ai-modal-progress" hidden>
         <div class="ai-spinner"></div>
-        <p id="ai-modal-progress-text" style="text-align: center; margin-top: 1rem;">מוריד את הסרטון, מעלה אותו ל-Google ומבקש מ-Gemini לתזמן את הבתים...</p>
-        <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.4rem;">
+        <p id="ai-modal-progress-text" class="ai-progress-text">מוריד את הסרטון, מעלה אותו ל-Google ומבקש מ-Gemini לתזמן את הבתים...</p>
+        <p class="ai-progress-sub">
           <span id="ai-modal-usual">זה לוקח בדרך כלל חצי דקה עד שתיים.</span> עברו <span id="ai-modal-elapsed">0</span> שניות.
         </p>
       </div>
 
       <div id="ai-modal-result" hidden></div>
 
-      <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
-        <button class="btn btn-secondary btn-sm" id="ai-modal-close" hidden>סגור</button>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="ai-modal-close" hidden>סגור</button>
       </div>
     </div>
   </div>

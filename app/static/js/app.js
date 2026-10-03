@@ -27,13 +27,22 @@ let currentPerformance = {
 // Studio State
 let studioVerses = [];
 let nextUntimedVerseIndex = 0;
-let isPreviewMode = false;
 let selectedAudioFile = null;
 let studioYoutubeUrl = null;  // set when the song's audio came from a YouTube link (enables AI timing)
 
 // Fullscreen Stage State
 let stageSlides = [];
 let currentStageSlideIndex = 0;
+
+// Helper: an icon from the SVG sprite in index.html
+function icon(name) {
+  return `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+}
+
+// Point an existing sprite icon (<svg><use></svg>) at another symbol
+function setIcon(svg, name) {
+  svg.querySelector("use").setAttribute("href", `#i-${name}`);
+}
 
 // Helper: Toast Notifications
 function showToast(message, type = "info") {
@@ -153,9 +162,10 @@ function renderSongCards(songs) {
 
   if (songs.length === 0) {
     container.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-secondary);">
+      <div class="empty-state">
+        <div class="empty-icon">${icon("music")}</div>
         <h3>לא נמצאו שירים</h3>
-        <p style="margin-top: 0.5rem;">לחץ על <strong>"הוסף שיר חדש"</strong> כדי להתחיל להזין שירים למאגר.</p>
+        <p>לחץ על <strong>שיר חדש</strong> כדי להוסיף שיר לספרייה.</p>
       </div>
     `;
     return;
@@ -170,36 +180,36 @@ function renderSongCards(songs) {
 
     card.innerHTML = `
       <div class="card-header">
-        <div>
-          <div class="card-title">${song.title}</div>
-          <div class="card-artist">${song.artist || "אמן לא צוין"}</div>
+        <button class="card-cover btn-preview" title="נגן ותצוגה מקדימה">
+          <span class="icon-rest">${icon("music")}</span>
+          <span class="icon-hover">${icon("play")}</span>
+        </button>
+        <div class="card-heading">
+          <div class="card-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
+          <div class="card-artist">${escapeHtml(song.artist || "אמן לא צוין")}</div>
         </div>
-        <span class="badge ${isHe ? 'badge-he' : 'badge-en'}">
-          ${isHe ? '🇮🇱 עברית' : '🇬🇧 English'}
-        </span>
       </div>
 
       <div class="card-meta">
-        <span>📖 ${verseCount} בתים</span>
-        <span>⏱️ ${durationStr}</span>
-        <span>${song.has_audio ? '🎵 שמע קיים' : '🔇 ללא שמע'}</span>
+        <span class="chip">${isHe ? "עברית" : "English"}</span>
+        <span class="chip">${icon("text")} ${verseCount} בתים</span>
+        <span class="chip">${icon("clock")} <span dir="ltr">${durationStr}</span></span>
+        ${song.has_audio ? "" : `<span class="chip chip-muted">${icon("mute")} ללא שמע</span>`}
       </div>
 
       <div class="card-actions">
-        <button class="btn btn-secondary btn-sm btn-preview" title="נגן ותצוגה מקדימה">
-          <span>▶️</span> נגן
-        </button>
-        <button class="btn btn-gold btn-sm btn-pptx" title="הורד מצגת PowerPoint">
-          <span>📊</span> מצגת
-        </button>
-        <button class="btn btn-primary btn-sm btn-video" title="צור סרטון קריוקי MP4">
-          <span>🎬</span> וידאו
-        </button>
         <button class="btn btn-secondary btn-sm btn-edit" title="ערוך באולפן">
-          <span>✏️</span> ערוך
+          ${icon("edit")} ערוך
         </button>
-        <button class="btn btn-danger btn-sm btn-delete" title="מחק מהמאגר">
-          <span>🗑️</span>
+        <button class="btn btn-ghost btn-sm btn-pptx" title="הורד מצגת PowerPoint">
+          ${icon("slides")} מצגת
+        </button>
+        <button class="btn btn-ghost btn-sm btn-video" title="צור סרטון קריוקי MP4">
+          ${icon("video")} וידאו
+        </button>
+        <span class="spacer"></span>
+        <button class="icon-btn icon-btn-sm icon-btn-ghost icon-btn-danger btn-delete" title="מחק מהספרייה">
+          ${icon("trash")}
         </button>
       </div>
     `;
@@ -382,6 +392,7 @@ function setupStudio() {
     if (file) {
       selectedAudioFile = file;
       studioYoutubeUrl = null;
+      setAudioFileLabel(file.name);
       audio.src = URL.createObjectURL(file);
       audio.load();
       showToast(`קובץ שמע נטען: ${file.name}`, "info");
@@ -398,7 +409,7 @@ function setupStudio() {
       return;
     }
     urlBtn.disabled = true;
-    urlBtn.innerText = "⏳ מוריד ומשנה לפורמט MP3...";
+    urlBtn.innerHTML = `<span class="ai-spinner-inline"></span><span>מוריד…</span>`;
     try {
       const res = await fetch("/api/audio/from-url", {
         method: "POST",
@@ -417,6 +428,7 @@ function setupStudio() {
       selectedAudioFile = file;
       studioYoutubeUrl = url;
       document.getElementById("song-audio-file").value = "";
+      setAudioFileLabel(`יוטיוב: ${file.name}`);
       audio.src = URL.createObjectURL(file);
       audio.load();
       // Fill in the details only if the user hasn't typed their own
@@ -430,7 +442,7 @@ function setupStudio() {
       showToast(err.message, "error");
     } finally {
       urlBtn.disabled = false;
-      urlBtn.innerText = "⬇️ הורד והמר ל-MP3";
+      urlBtn.innerHTML = `${icon("download")}<span>ייבוא</span>`;
     }
   };
   urlBtn.addEventListener("click", downloadFromUrl);
@@ -472,14 +484,14 @@ function setupStudio() {
 
   // Audio Events
   audio.addEventListener("play", () => {
-    document.getElementById("play-icon").innerText = "⏸️";
+    setIcon(document.getElementById("play-icon"), "pause");
     document.getElementById("play-text").innerText = "השהה";
     tapBtn.classList.add("pulsing");
   });
 
   audio.addEventListener("pause", () => {
-    document.getElementById("play-icon").innerText = "▶️";
-    document.getElementById("play-text").innerText = "נגן מוזיקה";
+    setIcon(document.getElementById("play-icon"), "play");
+    document.getElementById("play-text").innerText = "נגן";
     tapBtn.classList.remove("pulsing");
   });
 
@@ -527,6 +539,13 @@ function setupStudio() {
       }
     });
   }
+}
+
+// The custom file picker shows the chosen file's name (or a prompt when there is none)
+function setAudioFileLabel(name) {
+  const label = document.getElementById("song-audio-file-name");
+  label.innerText = name || "בחר קובץ MP3…";
+  label.closest(".file-picker").classList.toggle("has-file", !!name);
 }
 
 function autoDetectLanguageAndCount() {
@@ -817,7 +836,7 @@ function renderAiCost(cost) {
   const search = cost.search_query_count === undefined ? "" : `
       <tr>
         <td>חיפושי Google: ${cost.search_query_count}<br>
-            <small style="color: var(--text-muted);">$${cost.search_price_per_1000} לאלף חיפושים. ${cost.search_free_per_month.toLocaleString("en-US")} הראשונים בכל חודש חינם</small></td>
+            <small>$${cost.search_price_per_1000} לאלף חיפושים. ${cost.search_free_per_month.toLocaleString("en-US")} הראשונים בכל חודש חינם</small></td>
         <td>${formatUsd(cost.search_cost_usd)}</td>
       </tr>`;
   return `
@@ -825,12 +844,12 @@ function renderAiCost(cost) {
     <table class="ai-cost-table">
       <tr>
         <td>קלט: ${cost.input_tokens.toLocaleString("en-US")} טוקנים${modalities ? ` (${modalities})` : ""}<br>
-            <small style="color: var(--text-muted);">$${cost.input_price_per_million} למיליון טוקנים</small></td>
+            <small>$${cost.input_price_per_million} למיליון טוקנים</small></td>
         <td>${formatUsd(cost.input_cost_usd)}</td>
       </tr>
       <tr>
         <td>פלט: ${cost.output_tokens.toLocaleString("en-US")} טוקנים${thinking}<br>
-            <small style="color: var(--text-muted);">$${cost.output_price_per_million} למיליון טוקנים</small></td>
+            <small>$${cost.output_price_per_million} למיליון טוקנים</small></td>
         <td>${formatUsd(cost.output_cost_usd)}</td>
       </tr>${search}
     </table>
@@ -878,13 +897,13 @@ async function runAiTiming(progressMessage, sendRequest) {
     updateLivePreview(document.getElementById("studio-audio").currentTime);
 
     showAiResult(`
-      <p style="font-weight: 700;">✅ תוזמנו ${timed} מתוך ${sentTexts.length} בתים</p>
-      ${notes.length ? `<div class="ai-warnings">${notes.map(n => `<div>⚠️ ${escapeHtml(n)}</div>`).join("")}</div>` : ""}
-      <p class="ai-note" style="margin-top: 0.4rem;">זו הערכה של בינה מלאכותית. מומלץ להאזין ולכוון בתים עם ‎-0.5s / +0.5s‎ לפי הצורך.</p>
+      <p class="result-status success">${icon("check-circle")} תוזמנו ${timed} מתוך ${sentTexts.length} בתים</p>
+      ${notes.length ? `<div class="ai-warnings">${notes.map(n => `<div>${icon("alert")}<span>${escapeHtml(n)}</span></div>`).join("")}</div>` : ""}
+      <p class="ai-note">זו הערכה של בינה מלאכותית. מומלץ להאזין ולכוון בתים עם ‎-0.5s / +0.5s‎ לפי הצורך.</p>
       ${renderAiCost(data.cost)}
     `);
   } catch (err) {
-    showAiResult(`<p style="color: var(--accent-red); font-weight: 700;">❌ ${escapeHtml(err.message)}</p>`);
+    showAiResult(`<p class="result-status error">${icon("x-circle")} ${escapeHtml(err.message)}</p>`);
   }
 }
 
@@ -964,13 +983,13 @@ async function findLyricsWithAi() {
     autoDetectLanguageAndCount();
     syncVersesFromLyrics();
     showAiResult(`
-      <p style="font-weight: 700;">✅ נמצאו מילים (${studioVerses.length} בתים)</p>
-      ${data.source_url ? `<p class="ai-note" style="margin-top: 0.4rem;">מקור: <span dir="ltr">${escapeHtml(new URL(data.source_url).hostname.replace(/^www\./, ""))}</span></p>` : ""}
-      <p class="ai-note" style="margin-top: 0.4rem;">Gemini מצא את הדף בחיפוש בגוגל והעתיק ממנו את המילים. מומלץ לעבור עליהן לפני השימוש.</p>
+      <p class="result-status success">${icon("check-circle")} נמצאו מילים (${studioVerses.length} בתים)</p>
+      ${data.source_url ? `<p class="ai-note">מקור: <span dir="ltr">${escapeHtml(new URL(data.source_url).hostname.replace(/^www\./, ""))}</span></p>` : ""}
+      <p class="ai-note">Gemini מצא את הדף בחיפוש בגוגל והעתיק ממנו את המילים. מומלץ לעבור עליהן לפני השימוש.</p>
       ${renderAiCost(data.cost)}
     `);
   } catch (err) {
-    showAiResult(`<p style="color: var(--accent-red); font-weight: 700;">❌ ${escapeHtml(err.message)}</p>`);
+    showAiResult(`<p class="result-status error">${icon("x-circle")} ${escapeHtml(err.message)}</p>`);
   }
 }
 
@@ -1015,8 +1034,8 @@ function renderVersesList() {
 
   if (studioVerses.length === 0) {
     container.innerHTML = `
-      <div style="color: var(--text-muted); text-align: center; padding: 2rem;">
-        הדבק מילים משמאל והן יתפצלו לבתים אוטומטית (שורה ריקה מפרידה בין בתים), ואז התחל בתזמון.
+      <div class="list-empty">
+        הדבק מילים בתיבת המילים והן יתפצלו לבתים אוטומטית (שורה ריקה מפרידה בין בתים), ואז התחל בתזמון.
       </div>
     `;
     return;
@@ -1033,17 +1052,19 @@ function renderVersesList() {
     const timeStr = isTimed ? formatTime(verse.start_time) : "--:--.-";
 
     row.innerHTML = `
-      <div class="verse-meta">
-        <span style="font-weight: 700;">בית ${idx + 1} מתוך ${studioVerses.length}</span>
-        <div style="display: flex; gap: 0.4rem; align-items: center;">
-          <span class="verse-time-badge">${timeStr}</span>
-          <button class="btn btn-secondary btn-sm btn-nudge-minus" title="הקדש 0.5 שנ'">-0.5s</button>
-          <button class="btn btn-secondary btn-sm btn-nudge-plus" title="אחר 0.5 שנ'">+0.5s</button>
-          <button class="btn btn-secondary btn-sm btn-set-now" title="קבע לזמן הנוכחי">⏱️ כעת</button>
-          <button class="btn btn-secondary btn-sm btn-seek" title="קפוץ לבית זה">▶️</button>
+      <span class="verse-index">${idx + 1}</span>
+      <div class="verse-body">
+        <div class="verse-meta">
+          <span class="verse-time-badge ${isTimed ? "" : "untimed"}">${timeStr}</span>
+          <div class="verse-controls">
+            <button class="mini-btn btn-nudge-minus" title="הקדם ב-0.5 שניות">−0.5</button>
+            <button class="mini-btn btn-nudge-plus" title="אחר ב-0.5 שניות">+0.5</button>
+            <button class="icon-btn icon-btn-sm btn-set-now" title="קבע לזמן הנוכחי">${icon("timer")}</button>
+            <button class="icon-btn icon-btn-sm btn-seek" title="נגן מבית זה" ${isTimed ? "" : "disabled"}>${icon("play")}</button>
+          </div>
         </div>
+        <div class="verse-text-content" dir="${isHebrew(verse.text) ? 'rtl' : 'ltr'}">${escapeHtml(verse.text)}</div>
       </div>
-      <div class="verse-text-content" dir="${isHebrew(verse.text) ? 'rtl' : 'ltr'}">${verse.text}</div>
     `;
 
     // Nudge and Time Set Handlers
@@ -1216,6 +1237,7 @@ function loadSongIntoStudio(song) {
   document.getElementById("song-artist").value = song.artist || "";
   document.getElementById("song-language").value = song.language || "he";
   updateAiLyricsButton();
+  if (song.has_audio) setAudioFileLabel("השמע השמור של השיר");
 
   // Join verses into raw text
   const rawText = song.verses.map(v => v.text).join("\n\n");
@@ -1223,6 +1245,7 @@ function loadSongIntoStudio(song) {
 
   studioVerses = JSON.parse(JSON.stringify(song.verses || []));
   nextUntimedVerseIndex = studioVerses.length;
+  document.getElementById("verse-count-badge").innerText = `זוהו ${studioVerses.length} בתים`;
   renderVersesList();
 
   const audio = document.getElementById("studio-audio");
@@ -1245,6 +1268,7 @@ function resetStudio() {
   updateAiLyricsButton();
   document.getElementById("song-raw-lyrics").value = "";
   document.getElementById("song-audio-file").value = "";
+  setAudioFileLabel("");
   document.getElementById("song-audio-url").value = "";
   document.getElementById("verse-count-badge").innerText = "זוהו 0 בתים";
   const audio = document.getElementById("studio-audio");
@@ -1326,7 +1350,7 @@ async function loadPerformances(selectedId = null) {
 
       const newOpt = document.createElement("option");
       newOpt.value = "NEW";
-      newOpt.innerText = "➕ [צור הופעה חדשה ריקה...]";
+      newOpt.innerText = "הופעה חדשה (לא שמורה)";
       selector.appendChild(newOpt);
 
       allPerformances.forEach(p => {
@@ -1412,24 +1436,17 @@ function renderSetlistAvailableSongs() {
     const addedCount = currentPerformance.song_ids ? currentPerformance.song_ids.filter(id => id === song.id).length : 0;
 
     const item = document.createElement("div");
-    item.className = "verse-item";
-    item.style.flexDirection = "row";
-    item.style.justifyContent = "space-between";
-    item.style.alignItems = "center";
-    if (isAdded) {
-      item.style.borderColor = "var(--accent-cyan)";
-      item.style.backgroundColor = "rgba(56, 189, 248, 0.05)";
-    }
+    item.className = `row-item ${isAdded ? "is-added" : ""}`;
 
     item.innerHTML = `
-      <div>
-        <strong style="color: var(--text-primary);">${song.title}</strong>
-        <div style="font-size: 0.85rem; color: var(--accent-gold);">${song.artist || ""}</div>
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(song.title)}</div>
+        <div class="row-sub">${escapeHtml(song.artist || "")}</div>
       </div>
-      <div style="display: flex; gap: 0.5rem; align-items: center;">
-        ${isAdded ? `<span style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 700;">✓ ברשימה (${addedCount})</span>` : ''}
-        <button class="btn btn-secondary btn-sm btn-add-to-set">
-          <span>${isAdded ? '➕ הוסף שוב' : '➕ הוסף'}</span>
+      <div class="row-actions">
+        ${isAdded ? `<span class="row-status">${icon("check")} ${addedCount > 1 ? `${addedCount} פעמים` : "ברשימה"}</span>` : ""}
+        <button class="btn btn-secondary btn-sm btn-add-to-set" title="${isAdded ? "הוסף שוב להופעה" : "הוסף להופעה"}">
+          ${icon("plus")}<span>${isAdded ? "שוב" : "הוסף"}</span>
         </button>
       </div>
     `;
@@ -1461,8 +1478,8 @@ function renderSetlistQueue() {
 
   if (selectedSongs.length === 0) {
     container.innerHTML = `
-      <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
-        הרשימה ריקה. בחר שירים מהמאגר בצד שמאל והוסף אותם להופעה ⬅️
+      <div class="list-empty">
+        הרשימה ריקה. הוסף שירים מהספרייה.
       </div>
     `;
     return;
@@ -1470,24 +1487,19 @@ function renderSetlistQueue() {
 
   selectedSongs.forEach((song, idx) => {
     const row = document.createElement("div");
-    row.className = "verse-item";
-    row.style.flexDirection = "row";
-    row.style.justifyContent = "space-between";
-    row.style.alignItems = "center";
+    row.className = "row-item";
 
     row.innerHTML = `
-      <div style="display: flex; gap: 0.75rem; align-items: center;">
-        <span style="font-size: 1.1rem; font-weight: 800; color: var(--accent-cyan); width: 24px;">${idx + 1}.</span>
-        <div>
-          <strong style="font-size: 1.05rem;">${song.title}</strong>
-          <div style="font-size: 0.85rem; color: var(--accent-gold);">${song.artist || ""}</div>
-        </div>
+      <span class="row-num">${idx + 1}</span>
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(song.title)}</div>
+        <div class="row-sub">${escapeHtml(song.artist || "")}</div>
       </div>
-
-      <div style="display: flex; gap: 0.35rem;">
-        <button class="btn btn-secondary btn-sm btn-up" ${idx === 0 ? 'disabled' : ''} title="העבר למעלה">↑</button>
-        <button class="btn btn-secondary btn-sm btn-down" ${idx === selectedSongs.length - 1 ? 'disabled' : ''} title="העבר למטה">↓</button>
-        <button class="btn btn-danger btn-sm btn-remove" title="הסר מההופעה">✕</button>
+      <span class="time-display">${formatTime(song.duration || 0).split(".")[0]}</span>
+      <div class="row-actions">
+        <button class="icon-btn icon-btn-sm btn-up" ${idx === 0 ? 'disabled' : ''} title="העבר למעלה">${icon("up")}</button>
+        <button class="icon-btn icon-btn-sm btn-down" ${idx === selectedSongs.length - 1 ? 'disabled' : ''} title="העבר למטה">${icon("down")}</button>
+        <button class="icon-btn icon-btn-sm icon-btn-ghost icon-btn-danger btn-remove" title="הסר מההופעה">${icon("x")}</button>
       </div>
     `;
 
@@ -1683,11 +1695,11 @@ function setupFullscreenStage() {
   });
 
   audio.addEventListener("play", () => {
-    playBtn.innerText = "⏸️";
+    setIcon(playBtn, "pause");
   });
 
   audio.addEventListener("pause", () => {
-    playBtn.innerText = "▶️";
+    setIcon(playBtn, "play");
   });
 
   prevBtn.addEventListener("click", () => {
@@ -1709,7 +1721,7 @@ function setupFullscreenStage() {
 
   autoSyncBtn.addEventListener("click", () => {
     fsAutoSync = !fsAutoSync;
-    document.getElementById("fs-autosync-dot").innerText = fsAutoSync ? "🟢" : "⚪";
+    document.getElementById("fs-autosync-dot").classList.toggle("on", fsAutoSync);
     document.getElementById("fs-autosync-label").innerText = fsAutoSync ? "סנכרון מוזיקה: פועל" : "סנכרון מוזיקה: כבוי";
     showToast(fsAutoSync ? "סנכרון שקופיות אוטומטי הופעל" : "סנכרון מוזיקה כבוי (מעבר ידני)", "info");
   });
