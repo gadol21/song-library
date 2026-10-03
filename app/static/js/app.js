@@ -79,6 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupLibrary();
   setupStudio();
   setupAiTiming();
+  setupAiLyrics();
   setupSetlist();
   setupFullscreenStage();
   loadSongs();
@@ -423,6 +424,7 @@ function setupStudio() {
       const artistInput = document.getElementById("song-artist");
       if (title && !titleInput.value.trim()) titleInput.value = title;
       if (artist && !artistInput.value.trim()) artistInput.value = artist;
+      updateAiLyricsButton();  // setting a value from code fires no input event
       showToast(`השמע הורד והומר בהצלחה${title ? `: ${title}` : ""}`, "success");
     } catch (err) {
       showToast(err.message, "error");
@@ -758,7 +760,17 @@ function setupAiTiming() {
   document.getElementById("ai-modal-close").addEventListener("click", () => modal.classList.remove("active"));
 }
 
+// The shared AI dialog's heading and the "usually takes" line, which differ per operation
+const AI_DIALOG_TIMING = { title: "תזמון אוטומטי", usual: "זה לוקח בדרך כלל חצי דקה עד שתיים." };
+const AI_DIALOG_LYRICS = { title: "חיפוש מילים", usual: "זה לוקח בדרך כלל כמה שניות." };
+
+function setAiDialogText({ title, usual }) {
+  document.getElementById("ai-modal-title").innerText = title;
+  document.getElementById("ai-modal-usual").innerText = usual;
+}
+
 function showAiSingerInput() {
+  setAiDialogText(AI_DIALOG_TIMING);
   document.getElementById("ai-modal-progress").hidden = true;
   document.getElementById("ai-modal-result").hidden = true;
   document.getElementById("ai-modal-close").hidden = true;
@@ -801,6 +813,13 @@ function renderAiCost(cost) {
   const promo = cost.price_valid_through
     ? ` מחיר המבצע בתוקף עד ${formatIsoDateHe(cost.price_valid_through)}, ואז התעריף מוכפל.`
     : "";
+  // Only requests with Google Search grounding carry a search part
+  const search = cost.search_query_count === undefined ? "" : `
+      <tr>
+        <td>חיפושי Google: ${cost.search_query_count}<br>
+            <small style="color: var(--text-muted);">$${cost.search_price_per_1000} לאלף חיפושים. ${cost.search_free_per_month.toLocaleString("en-US")} הראשונים בכל חודש חינם</small></td>
+        <td>${formatUsd(cost.search_cost_usd)}</td>
+      </tr>`;
   return `
     <div class="ai-result-cost">${formatUsd(cost.total_cost_usd)}</div>
     <table class="ai-cost-table">
@@ -813,7 +832,7 @@ function renderAiCost(cost) {
         <td>פלט: ${cost.output_tokens.toLocaleString("en-US")} טוקנים${thinking}<br>
             <small style="color: var(--text-muted);">$${cost.output_price_per_million} למיליון טוקנים</small></td>
         <td>${formatUsd(cost.output_cost_usd)}</td>
-      </tr>
+      </tr>${search}
     </table>
     <p class="ai-note">
       זה המחיר לפי התעריף בתשלום של ${escapeHtml(cost.model)}.${promo}
@@ -834,6 +853,7 @@ async function runAiTiming(progressMessage, sendRequest) {
   }
 
   const sentTexts = studioVerses.map(v => v.text);
+  setAiDialogText(AI_DIALOG_TIMING);
   showAiProgress(progressMessage);
   try {
     const res = await sendRequest(sentTexts);
@@ -905,6 +925,53 @@ function timeLyricsWithSingerVersion(singerUrl) {
     }
     return fetch("/api/ai/time-verses-singer", { method: "POST", body: form });
   });
+}
+
+// ---------- AI lyrics search (Gemini + Google Search) ----------
+function updateAiLyricsButton() {
+  const ready = !!(document.getElementById("song-title").value.trim() && document.getElementById("song-artist").value.trim());
+  document.getElementById("btn-ai-lyrics").disabled = !ready;
+  document.getElementById("ai-lyrics-hint").hidden = ready;
+}
+
+function setupAiLyrics() {
+  for (const id of ["song-title", "song-artist"]) {
+    document.getElementById(id).addEventListener("input", updateAiLyricsButton);
+  }
+  document.getElementById("btn-ai-lyrics").addEventListener("click", findLyricsWithAi);
+  updateAiLyricsButton();
+}
+
+async function findLyricsWithAi() {
+  const title = document.getElementById("song-title").value.trim();
+  const artist = document.getElementById("song-artist").value.trim();
+  if (!title || !artist) return;
+  const box = document.getElementById("song-raw-lyrics");
+  if (box.value.trim() && !confirm("המילים הקיימות יוחלפו במילים שנמצאו. להמשיך?")) return;
+
+  setAiDialogText(AI_DIALOG_LYRICS);
+  showAiProgress(`מחפש ב-Google את המילים של "${title}" של ${artist}...`);
+  try {
+    const res = await fetch("/api/ai/find-lyrics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, artist })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "חיפוש המילים נכשל");
+
+    box.value = data.lyrics;
+    autoDetectLanguageAndCount();
+    syncVersesFromLyrics();
+    showAiResult(`
+      <p style="font-weight: 700;">✅ נמצאו מילים (${studioVerses.length} בתים)</p>
+      ${data.source_url ? `<p class="ai-note" style="margin-top: 0.4rem;">מקור: <span dir="ltr">${escapeHtml(new URL(data.source_url).hostname.replace(/^www\./, ""))}</span></p>` : ""}
+      <p class="ai-note" style="margin-top: 0.4rem;">Gemini מצא את הדף בחיפוש בגוגל והעתיק ממנו את המילים. מומלץ לעבור עליהן לפני השימוש.</p>
+      ${renderAiCost(data.cost)}
+    `);
+  } catch (err) {
+    showAiResult(`<p style="color: var(--accent-red); font-weight: 700;">❌ ${escapeHtml(err.message)}</p>`);
+  }
 }
 
 function recordTapTimestamp() {
@@ -1148,6 +1215,7 @@ function loadSongIntoStudio(song) {
   document.getElementById("song-title").value = song.title || "";
   document.getElementById("song-artist").value = song.artist || "";
   document.getElementById("song-language").value = song.language || "he";
+  updateAiLyricsButton();
 
   // Join verses into raw text
   const rawText = song.verses.map(v => v.text).join("\n\n");
@@ -1174,6 +1242,7 @@ function resetStudio() {
   nextUntimedVerseIndex = 0;
   document.getElementById("song-title").value = "";
   document.getElementById("song-artist").value = "";
+  updateAiLyricsButton();
   document.getElementById("song-raw-lyrics").value = "";
   document.getElementById("song-audio-file").value = "";
   document.getElementById("song-audio-url").value = "";

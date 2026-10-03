@@ -806,6 +806,24 @@ main {
   filter: brightness(1.15);
 }
 
+.btn-ai:disabled {
+  background: #3a3f4b;
+  color: var(--text-muted);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.ai-lyrics-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ai-lyrics-wrap small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 .ai-badge {
   background: rgba(255, 255, 255, 0.22);
   border-radius: 6px;

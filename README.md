@@ -15,6 +15,7 @@ A streamlined, non-technical studio designed for sing-along singers, community s
 2. **🎙️ "Tap-to-Sync" Studio (Verse-by-Verse Timing)**:
    - Paste lyrics and split into verses/stanzas with one click.
    - Hit Play and simply press the **Spacebar** whenever the next verse begins.
+   - **🪄 Find lyrics (AI)**: with a title and artist filled in, Gemini searches Google and fills the lyrics box (the price of each request is shown). Needs a Gemini key in `.env`.
    - Micro-adjust timings anytime with `[-0.5s]` and `[+0.5s]` buttons.
    - Real-time stage preview lets you verify the visual flow before saving.
 

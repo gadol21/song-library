@@ -23,6 +23,7 @@ from app.sample_data import seed_sample_data_if_empty
 from app.theme import resolve_theme
 from app.youtube import download_audio_mp3, AudioDownloadError
 from app.gemini_timing import time_verses_from_youtube, time_verses_from_singer_version, GeminiTimingError
+from app.gemini_lyrics import find_lyrics
 
 app = FastAPI(title="Sing-Along Studio API", version="1.0.0")
 
@@ -126,6 +127,18 @@ def api_ai_time_verses(req: AiTimingRequest):
     """Time the verses against the song's YouTube video with Gemini (takes a minute or so)."""
     try:
         return time_verses_from_youtube(req.youtube_url, req.verses, title=req.title, artist=req.artist)
+    except GeminiTimingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+class FindLyricsRequest(BaseModel):
+    title: str
+    artist: str
+
+@app.post("/api/ai/find-lyrics")
+def api_ai_find_lyrics(req: FindLyricsRequest):
+    """Ask Gemini (with Google Search) for the song's lyrics; returns them with the price of the request."""
+    try:
+        return find_lyrics(req.title, req.artist)
     except GeminiTimingError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

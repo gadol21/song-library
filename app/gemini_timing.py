@@ -267,14 +267,8 @@ def _friendly_api_error(error: Exception, key: str) -> GeminiTimingError:
         return GeminiTimingError("השירות של Gemini עמוס כרגע. נסה שוב בעוד רגע.")
     return GeminiTimingError(f"שגיאה מ-Gemini ({code}): {detail}")
 
-def _generate_with_retries(client: genai.Client, contents: List[Any], schema: Dict[str, Any]) -> Any:
+def _generate_content(client: genai.Client, contents: List[Any], config: types.GenerateContentConfig) -> Any:
     """generate_content, retrying a few times when Google reports it is busy (HTTP 5xx)."""
-    config = types.GenerateContentConfig(
-        response_mime_type="application/json",
-        response_json_schema=schema,
-        thinking_config=types.ThinkingConfig(thinking_level=thinking_level()),
-        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-    )
     for attempt in range(BUSY_RETRIES + 1):
         try:
             return client.models.generate_content(model=GEMINI_MODEL, contents=contents, config=config)
@@ -282,6 +276,15 @@ def _generate_with_retries(client: genai.Client, contents: List[Any], schema: Di
             if attempt == BUSY_RETRIES:
                 raise
             time.sleep(BUSY_RETRY_DELAY_SECONDS * (attempt + 1))
+
+def _generate_with_retries(client: genai.Client, contents: List[Any], schema: Dict[str, Any]) -> Any:
+    """Ask for an answer in the given JSON schema."""
+    return _generate_content(client, contents, types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_json_schema=schema,
+        thinking_config=types.ThinkingConfig(thinking_level=thinking_level()),
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    ))
 
 def _wait_until_active(client: genai.Client, uploaded: Any) -> Any:
     """Google processes an uploaded file before it can be used; poll until it is ready."""

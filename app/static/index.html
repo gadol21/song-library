@@ -131,6 +131,15 @@
           <div class="form-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
               <label class="form-label" style="margin-bottom: 0;">מילות השיר (הדבק כאן)</label>
+              <!-- AI lyrics search (needs both title and artist) -->
+              <div class="ai-lyrics-wrap">
+                <small id="ai-lyrics-hint">יש למלא שם שיר ושם אמן</small>
+                <button type="button" class="btn btn-sm btn-ai" id="btn-ai-lyrics" disabled title="חיפוש מילים באמצעות בינה מלאכותית">
+                  <span>🪄</span>
+                  <span>מצא מילים</span>
+                  <span class="ai-badge">AI</span>
+                </button>
+              </div>
             </div>
             <textarea id="song-raw-lyrics" class="form-textarea" placeholder="הדבק כאן את מילות השיר...
 לדוגמה:
@@ -448,7 +457,7 @@
   <!-- AI Timing: progress & result -->
   <div class="modal-overlay" id="ai-timing-modal">
     <div class="modal-content">
-      <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">🪄 תזמון אוטומטי <span class="ai-badge">AI</span></h3>
+      <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">🪄 <span id="ai-modal-title">תזמון אוטומטי</span> <span class="ai-badge">AI</span></h3>
 
       <!-- Singer-version option: ask for the link -->
       <div id="ai-modal-input" hidden>
@@ -467,7 +476,7 @@
         <div class="ai-spinner"></div>
         <p id="ai-modal-progress-text" style="text-align: center; margin-top: 1rem;">מוריד את הסרטון, מעלה אותו ל-Google ומבקש מ-Gemini לתזמן את הבתים...</p>
         <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.4rem;">
-          זה לוקח בדרך כלל חצי דקה עד שתיים. עברו <span id="ai-modal-elapsed">0</span> שניות.
+          <span id="ai-modal-usual">זה לוקח בדרך כלל חצי דקה עד שתיים.</span> עברו <span id="ai-modal-elapsed">0</span> שניות.
         </p>
       </div>
 
