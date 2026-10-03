@@ -66,6 +66,16 @@ async fn save_export_route(Json(body): Json<Value>) -> Result<Json<Value>, (axum
     }
 }
 
+/// The window and taskbar icon, decoded from the embedded PNG.
+fn window_icon() -> Option<tao::window::Icon> {
+    let decoder = png::Decoder::new(std::io::Cursor::new(include_bytes!("../assets/icon.png")));
+    let mut reader = decoder.read_info().ok()?;
+    let mut buf = vec![0; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buf).ok()?;
+    buf.truncate(info.buffer_size());
+    tao::window::Icon::from_rgba(buf, info.width, info.height).ok()
+}
+
 /// First run: give the user a .env to edit (Gemini key, data/exports folders).
 fn prepare_home(home: &Path) {
     let _ = std::fs::create_dir_all(home);
@@ -106,6 +116,7 @@ pub fn run() {
     let event_loop = EventLoopBuilder::new().build();
     let window = WindowBuilder::new()
         .with_title(format!("{} | אולפן שירה בציבור וקריוקי", APP_NAME))
+        .with_window_icon(window_icon())
         .with_inner_size(LogicalSize::new(1400.0, 900.0))
         .with_min_inner_size(LogicalSize::new(900.0, 600.0))
         .build(&event_loop)
