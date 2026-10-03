@@ -62,7 +62,8 @@ def _fit_pt(blocks: List[List[str]], box_w_in: float, box_h_in: float, line_spac
 def _header_text(song: Dict[str, Any], verse: Dict[str, Any], verse_index: int, total_verses: int) -> str:
     song_title = song.get("title", "")
     if detect_language(verse.get("text", "") + song_title) == "he":
-        progress_str = f"בית {verse_index} מתוך {total_verses}"
+        # A right-to-left mark after each number keeps PowerPoint from reordering the numbers and spaces
+        progress_str = f"בית {verse_index}‏ מתוך {total_verses}‏"
     else:
         progress_str = f"Verse {verse_index} of {total_verses}"
     return f"{song_title}  •  {progress_str}"
