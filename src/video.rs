@@ -702,6 +702,7 @@ impl VideoEncoder {
             .scene_change_detect(true)
             .adaptive_quantization(false)
             .background_detection(false)
+            .num_threads(0)  // 0 = auto: use all cores
             .vui(VuiConfig::bt601());
         let encoder = Encoder::with_api_config(openh264::OpenH264API::from_source(), config).map_err(|e| e.to_string())?;
         Ok(VideoEncoder { encoder, sps: Vec::new(), pps: Vec::new() })
