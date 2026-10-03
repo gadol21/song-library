@@ -10,6 +10,7 @@ pub mod gemini_timing;
 pub mod html_text;
 pub mod log;
 pub mod mp4;
+pub mod notes;
 pub mod pptx;
 pub mod sample;
 pub mod server;
