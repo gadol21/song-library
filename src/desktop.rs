@@ -70,7 +70,7 @@ async fn save_export_route(Json(body): Json<Value>) -> Result<Json<Value>, (axum
 fn window_icon() -> Option<tao::window::Icon> {
     let decoder = png::Decoder::new(std::io::Cursor::new(include_bytes!("../assets/icon.png")));
     let mut reader = decoder.read_info().ok()?;
-    let mut buf = vec![0; reader.output_buffer_size()];
+    let mut buf = vec![0; reader.output_buffer_size()?];
     let info = reader.next_frame(&mut buf).ok()?;
     buf.truncate(info.buffer_size());
     tao::window::Icon::from_rgba(buf, info.width, info.height).ok()

@@ -6,13 +6,13 @@
 use std::fs::File;
 use std::path::Path;
 
-use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
+use symphonia::core::audio::sample::Sample;
+use symphonia::core::codecs::audio::AudioDecoderOptions;
 use symphonia::core::errors::Error as SymError;
-use symphonia::core::formats::FormatOptions;
+use symphonia::core::formats::probe::Hint;
+use symphonia::core::formats::{FormatOptions, FormatReader, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 
 use crate::mp4;
 
@@ -29,41 +29,43 @@ impl Pcm {
     }
 }
 
-/// Decode a whole audio file (mp3, m4a/aac, wav, flac, ogg vorbis, aiff, alac). Encoder delay and padding are
-/// removed, as FFmpeg does, so the audio starts exactly at its first real sample.
-pub fn decode(path: &Path) -> Result<Pcm, String> {
+/// Open an audio file and probe its container.
+fn open(path: &Path) -> Result<Box<dyn FormatReader>, String> {
     let file = File::open(path).map_err(|e| e.to_string())?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
     let mut hint = Hint::new();
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         hint.with_extension(ext);
     }
-    let format_opts = FormatOptions { enable_gapless: true, ..Default::default() };
-    let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &format_opts, &MetadataOptions::default())
-        .map_err(|e| format!("unsupported audio format ({})", e))?;
-    let mut format = probed.format;
-    let track = format
-        .tracks()
-        .iter()
-        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL && t.codec_params.sample_rate.is_some())
-        .ok_or("no audio track")?;
+    symphonia::default::get_probe()
+        .probe(&hint, mss, FormatOptions::default(), MetadataOptions::default())
+        .map_err(|e| format!("unsupported audio format ({})", e))
+}
+
+/// Decode a whole audio file (mp3, m4a/aac, wav, flac, ogg vorbis, aiff, alac). Encoder delay and padding are
+/// removed, as FFmpeg does, so the audio starts exactly at its first real sample.
+pub fn decode(path: &Path) -> Result<Pcm, String> {
+    let mut format = open(path)?;
+    let track = format.default_track(TrackType::Audio).ok_or("no audio track")?;
     let track_id = track.id;
+    let params = track.codec_params.as_ref().and_then(|p| p.audio()).ok_or("no audio track")?;
+    let mut rate = params.sample_rate.unwrap_or(44100);
     let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
+        .make_audio_decoder(params, &AudioDecoderOptions::default())
         .map_err(|e| format!("unsupported audio codec ({})", e))?;
 
-    let mut rate = track.codec_params.sample_rate.unwrap_or(44100);
     let mut channels = 0usize;
     let mut samples: Vec<f32> = Vec::new();
+    let mut chunk: Vec<f32> = Vec::new();
     loop {
         let packet = match format.next_packet() {
-            Ok(p) => p,
+            Ok(Some(p)) => p,
+            Ok(None) => break,
             Err(SymError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
             Err(SymError::ResetRequired) => break,
             Err(e) => return Err(e.to_string()),
         };
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
         let decoded = match decoder.decode(&packet) {
@@ -71,19 +73,18 @@ pub fn decode(path: &Path) -> Result<Pcm, String> {
             Err(SymError::DecodeError(_)) => continue,
             Err(e) => return Err(e.to_string()),
         };
-        let spec = *decoded.spec();
-        rate = spec.rate;
-        let ch = spec.channels.count();
+        rate = decoded.spec().rate();
+        let ch = decoded.spec().channels().count();
         if channels == 0 {
             channels = ch;
         }
-        let mut buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
-        buf.copy_interleaved_ref(decoded);
-        let frames = buf.samples().len() / ch;
+        chunk.resize(decoded.samples_interleaved(), f32::MID);
+        decoded.copy_to_slice_interleaved(&mut chunk);
+        let frames = chunk.len() / ch.max(1);
         // Gapless trimming
-        let start = (packet.trim_start as usize).min(frames);
-        let end = frames.saturating_sub(packet.trim_end as usize).max(start);
-        let data = &buf.samples()[start * ch..end * ch];
+        let start = (packet.trim_start.get() as usize).min(frames);
+        let end = frames.saturating_sub(packet.trim_end.get() as usize).max(start);
+        let data = &chunk[start * ch..end * ch];
         if ch == channels {
             samples.extend_from_slice(data);
         } else {
@@ -98,7 +99,28 @@ pub fn decode(path: &Path) -> Result<Pcm, String> {
     if channels == 0 {
         return Err("the file has no audio".into());
     }
-    Ok(Pcm { rate, channels, samples })
+    let mut pcm = Pcm { rate, channels, samples };
+    apply_mp4_edit_list(path, &mut pcm);
+    Ok(pcm)
+}
+
+/// MP4/M4A files say where the real audio starts and how long it is in an edit list (it hides the AAC encoder's
+/// priming samples). The decoder returns everything, so cut the audio the way FFmpeg does.
+fn apply_mp4_edit_list(path: &Path, pcm: &mut Pcm) {
+    let Ok(movie) = mp4::read_movie(path) else { return };
+    let Some(track) = movie.tracks.iter().find(|t| t.is_audio()) else { return };
+    let Some(&(segment, media_time)) = track.edits.iter().find(|e| e.1 >= 0) else { return };
+    if track.timescale == 0 {
+        return;
+    }
+    let to_frames = |ticks: u64, scale: u32| (ticks as u128 * pcm.rate as u128 / scale as u128) as usize;
+    let skip = to_frames(media_time as u64, track.timescale).min(pcm.frames());
+    let mut keep = pcm.frames() - skip;
+    if segment > 0 && movie.timescale > 0 {
+        keep = keep.min(to_frames(segment, movie.timescale));
+    }
+    let from = skip * pcm.channels;
+    pcm.samples = pcm.samples[from..from + keep * pcm.channels].to_vec();
 }
 
 /// Mono or stereo version (encoders take at most two channels): extra channels are dropped.
@@ -445,15 +467,9 @@ pub fn probe_duration(path: &Path) -> f64 {
 }
 
 fn symphonia_duration(path: &Path) -> Option<f64> {
-    let file = File::open(path).ok()?;
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
-    let mut hint = Hint::new();
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        hint.with_extension(ext);
-    }
-    let probed = symphonia::default::get_probe().format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default()).ok()?;
-    let track = probed.format.tracks().iter().find(|t| t.codec_params.codec != CODEC_TYPE_NULL)?;
-    let frames = track.codec_params.n_frames?;
-    let rate = track.codec_params.sample_rate?;
+    let format = open(path).ok()?;
+    let track = format.default_track(TrackType::Audio)?;
+    let frames = track.num_frames?;
+    let rate = track.codec_params.as_ref()?.audio()?.sample_rate?;
     Some(microseconds(frames as u128, rate as u128))
 }
