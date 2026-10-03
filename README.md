@@ -26,6 +26,7 @@ A streamlined, non-technical studio designed for sing-along singers, community s
    - 16:9 widescreen layout designed for stage projectors and venue TVs.
    - High-contrast stage theme (midnight slate background, crisp large text, golden accents).
    - Generates intro title slides and slide-per-verse with song progress indicators.
+   - Embeds the song's audio and, for timed songs, advances the slides by themselves in sync with it (start the slide show and it plays).
 
 5. **🎬 1-Click Full Movie (.mp4) Generator**:
    - **Performance Movies**: Export the entire setlist into a single, seamless 720p HD MP4 video with intro cards, audio tracks, and synchronized lyrics!

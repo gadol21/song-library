@@ -20,6 +20,8 @@ Sing-Along Studio: a FastAPI app plus a no-build vanilla-JS web UI (UI text is H
 
 **Exports share one input shape.** `/api/export/pptx` and `/api/export/video` load a song or performance, resolve the performance's colors via `theme.resolve_theme`, and call `pptx_generator.generate_presentation` / `video_generator.generate_karaoke_video` / `generate_performance_video`. `text_fit.py` picks one font size per song (the largest that fits its longest verse, measured with Pillow against Arial Bold), used by both generators.
 
+**PPTX audio** (`pptx_generator.py`): a song with audio gets it embedded (hand-built XML: audio/media relationships, a hidden picture, a `p:timing` tree with `numSld` so it plays across the song's slides). Timed songs also get `advTm` auto-advance per slide (verse start to next verse start). The audio starts on the title slide, or on verse 1 when it begins before 2 s. Not opened in real PowerPoint during development: only the XML structure was checked.
+
 **Video pipeline** (`app/video_generator.py`) is the least obvious part:
 - Layout is designed on a 1280x720 canvas (`VIDEO_W/H`, also the ASS `PlayRes`); output is 1920x1080 (`OUTPUT_W/H`) and libass scales the canvas. Change resolution with the OUTPUT constants only.
 - The picture changes only when a subtitle appears or disappears, so `plan_screens`/`render_screens` draw each distinct screen once as a PNG (by remapping the ASS script so screen *i* sits at second *i*), then FFmpeg builds the video from a concat list.
