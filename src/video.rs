@@ -7,6 +7,8 @@
 //! The picture changes only when a subtitle appears or disappears, so each distinct screen is drawn once. A frame
 //! rate gives a constant-frame-rate video (plays everywhere); None gives one frame per screen, held exactly as long
 //! as it is shown (variable frame rate: fastest, but not every player handles it).
+//!
+//! Every screen is drawn over the same backdrop: the background color with music notes in the side margins (`notes.rs`).
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -16,6 +18,7 @@ use serde_json::Value;
 use crate::audio::{self, AacEncoder};
 use crate::config::paths;
 use crate::mp4::{self, OutSample, OutTrack};
+use crate::notes::{self, Seg};
 use crate::py::{self, Dict};
 use crate::storage::detect_language;
 use crate::text_fit::{fit_font_size, line_height_em};
@@ -616,6 +619,48 @@ fn draw_event(frame: &mut Frame, style: &Style, text: &str) -> Result<(), String
     Ok(())
 }
 
+/// The background every screen is drawn on: the background color with the music notes around the edge.
+pub fn backdrop(theme: &Theme) -> Frame {
+    let mut frame = Frame::new(hex_to_rgb(&theme.bg_color));
+    let (r, g, b) = hex_to_rgb(&notes::note_color(theme));
+    let scale = (OUTPUT_H as f64 / VIDEO_H) as f32;
+    for note in notes::frame_notes() {
+        let (l, t, rt, bt) = notes::bounds(&note);
+        let left = (l * scale as f64).floor() as i64 - 1;
+        let top = (t * scale as f64).floor() as i64 - 1;
+        let w = ((rt * scale as f64).ceil() as i64 - left + 2) as usize;
+        let h = ((bt * scale as f64).ceil() as i64 - top + 2) as usize;
+        let (dx, dy) = (-left as f32, -top as f32);
+        // Each part filled on its own, then united, so overlaps keep one color
+        let mut mask = vec![0u8; w * h];
+        for part in &note {
+            let mut pb = tiny_skia::PathBuilder::new();
+            for seg in part {
+                match *seg {
+                    Seg::Move(x, y) => pb.move_to(x as f32 * scale, y as f32 * scale),
+                    Seg::Line(x, y) => pb.line_to(x as f32 * scale, y as f32 * scale),
+                    Seg::Cubic(x1, y1, x2, y2, x, y) => pb.cubic_to(
+                        x1 as f32 * scale,
+                        y1 as f32 * scale,
+                        x2 as f32 * scale,
+                        y2 as f32 * scale,
+                        x as f32 * scale,
+                        y as f32 * scale,
+                    ),
+                }
+            }
+            pb.close();
+            if let Some(path) = pb.finish() {
+                for (m, c) in mask.iter_mut().zip(coverage(&path, None, w, h, dx, dy)) {
+                    *m = (*m).max(c);
+                }
+            }
+        }
+        frame.blend(&mask, w, h, left, top, (r, g, b, 0));
+    }
+    frame
+}
+
 /// The distinct screens of a script: change times, and per screen the events on it (in drawing order).
 pub struct ScreenPlan {
     pub times: Vec<f64>,
@@ -637,9 +682,9 @@ impl ScreenPlan {
         self.times.len().saturating_sub(1)
     }
 
-    /// Draw screen i (shown from times[i] to times[i + 1]).
-    pub fn render(&self, i: usize, bg: (u8, u8, u8)) -> Result<Frame, String> {
-        let mut frame = Frame::new(bg);
+    /// Draw screen i (shown from times[i] to times[i + 1]) over the backdrop.
+    pub fn render(&self, i: usize, backdrop: &Frame) -> Result<Frame, String> {
+        let mut frame = backdrop.clone();
         let t = self.times[i];
         for e in &self.events {
             if e.start <= t && t < e.end {
@@ -795,7 +840,7 @@ impl Movie {
     }
 
     /// Add one song: its screens for `length` seconds and its audio (padded or cut to the same length).
-    fn add_song(&mut self, plan: &ScreenPlan, bg: (u8, u8, u8), length: f64, pcm: Option<&audio::Pcm>) -> Result<(), String> {
+    fn add_song(&mut self, plan: &ScreenPlan, backdrop: &Frame, length: f64, pcm: Option<&audio::Pcm>) -> Result<(), String> {
         let count = plan.count();
         let segment_start = self.video_time;
         match self.fps {
@@ -808,7 +853,7 @@ impl Movie {
                     let screen = (0..count).rev().find(|&i| first_frame[i] <= n && first_frame[i + 1] > first_frame[i]).unwrap_or(0);
                     let screen = if count == 0 { usize::MAX } else { screen };
                     if current.as_ref().map(|c| c.0) != Some(screen) {
-                        let frame = if screen == usize::MAX { Frame::new(bg) } else { plan.render(screen, bg)? };
+                        let frame = if screen == usize::MAX { backdrop.clone() } else { plan.render(screen, backdrop)? };
                         current = Some((screen, to_yuv420(&frame)));
                     }
                     self.push_frame(&current.as_ref().unwrap().1, 1000)?;
@@ -825,11 +870,11 @@ impl Movie {
                     if to <= from {
                         continue;
                     }
-                    let yuv = to_yuv420(&plan.render(i, bg)?);
+                    let yuv = to_yuv420(&plan.render(i, backdrop)?);
                     self.push_frame(&yuv, to - from)?;
                     last_frame = Some(yuv);
                 }
-                let yuv = last_frame.unwrap_or_else(|| to_yuv420(&Frame::new(bg)));
+                let yuv = last_frame.unwrap_or_else(|| to_yuv420(backdrop));
                 self.push_frame(&yuv, (self.video_timescale / 25) as u64)?;
             }
         }
@@ -955,13 +1000,13 @@ fn render_songs(songs: &[Dict], theme: &Theme, frame_rate: Option<f64>, out_path
         None => (44_100, 2, 128_000),
     };
     let mut movie = Movie::new(frame_rate, rate, channels)?;
-    let bg = hex_to_rgb(&theme.bg_color);
+    let backdrop = backdrop(theme);
     for (song, (pcm, duration)) in songs.iter().zip(&prepared) {
         let script = generate_ass_subtitles(song, *duration, theme);
         let plan = ScreenPlan::new(&script);
         // In a performance each song's part runs a moment past its end in variable-frame-rate mode, as before
         let length = *duration;
-        movie.add_song(&plan, bg, length, pcm.as_ref())?;
+        movie.add_song(&plan, &backdrop, length, pcm.as_ref())?;
     }
     movie.finish(out_path, bitrate)
 }
