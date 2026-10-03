@@ -1,7 +1,8 @@
 data
 exports
-*.pyc
-.venv
 .env
-build
-dist
+target
+.venv
+.playwright-mcp/
+__pycache__
+*.pyc

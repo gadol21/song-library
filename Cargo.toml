@@ -1,0 +1,55 @@
+[package]
+name = "singalong-studio"
+version = "1.0.0"
+edition = "2021"
+description = "Sing-Along Studio: song library, verse timing, PowerPoint and karaoke video export"
+publish = false
+
+[lib]
+name = "singalong"
+path = "src/lib.rs"
+
+[[bin]]
+name = "SingAlongStudio"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "multipart", "query", "tokio", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "process", "sync", "time", "signal"] }
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "gzip", "brotli", "deflate", "charset"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+indexmap = "2"
+regex = "1"
+rust-embed = { version = "8", features = ["include-exclude"] }
+percent-encoding = "2"
+tempfile = "3"
+sha2 = "0.10"
+unicode-general-category = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+ttf-parser = "0.25"
+rustybuzz = "0.20"
+tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }
+png = "0.17"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "mp1", "mp2", "aac", "isomp4", "wav", "flac", "ogg", "vorbis", "pcm", "alac", "aiff", "caf"] }
+mp3lame-encoder = "0.2"
+fdk-aac-sys = "0.5"
+openh264 = { version = "0.9", default-features = false, features = ["source"] }
+
+[target.'cfg(windows)'.dependencies]
+wry = "0.53"
+tao = "0.34"
+rfd = { version = "0.15", default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# The encoders and decoders are far too slow unoptimized; keep them fast in debug builds too
+[profile.dev.package."*"]
+opt-level = 3

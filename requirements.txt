@@ -1,9 +1,0 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-python-multipart>=0.0.12
-python-pptx>=1.0.0
-python-bidi>=0.6.0
-httpx>=0.28.0
-python-dotenv>=1.0.0
-yt-dlp[default]>=2025.11.12
-google-genai>=2.0.0
